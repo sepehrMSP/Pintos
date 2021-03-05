@@ -403,9 +403,43 @@ We use -20 for aligning the `%esp`. At first note that due to the convention, th
 As just mentioned above the `%esp` mod `16` must be -4.
 
 ۱۶.
+0xbfffffa8:     0x00000001      0x000000a2
 
 ۱۷.
+args[0] = 1 -> 0x00000001
+args[1] = 162 -> 0x000000a2
 
 ۱۸.
+The corresponding call to   `sema_down (&temporary);` is in process_wait in `process.c`.
+When `process_exit` is finished, it releases this semaphore and wakes up `process_wait` which has been waiting for the process to finish and returns its exit status.
 
 ۱۹.
+
+pintos-debug: dumplist #0: 0xc000e000 
+{
+  tid = 1, 
+  status = THREAD_RUNNING, 
+  name = "main", '\000' <repeats 11 times>, 
+  stack = 0xc000eeac "\001",
+  priority = 31, 
+  allelem = {prev = 0xc0035910 <all_list>, next = 0xc0104020}, 
+  elem = {prev = 0xc0035920 <ready_list>, next = 0xc0035928 <ready_list+8>}, 
+  pagedir = 0x0, 
+  magic = 3446325067
+}
+
+pintos-debug: dumplist #1: 0xc0104000 
+{
+  tid = 2, 
+  status = THREAD_BLOCKED, 
+  name = "idle", 
+  '\000' <repeats 11 times>, 
+  stack = 0xc0104f34 "", 
+  priority = 0, 
+  allelem = {prev = 0xc000e020, next = 0xc0035918 <all_list+8>}, 
+  elem = {prev = 0xc0035920 <ready_list>, 
+  next = 0xc0035928 <ready_list+8>}, 
+  pagedir = 0x0, 
+  magic = 3446325067
+}
+
