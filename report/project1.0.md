@@ -394,7 +394,13 @@ The value of registers are same!
 
 ۱۴.
 
+We subtract the `%esp` by 20 at the end of `load` function.
+We use -20 for aligning the `%esp`. At first note that due to the convention, the `%esp` must be 16-byte-aligned before `call`. Therefore after executing `call` the `%esp` remainder mod `16` will be `-4`. According to the mentioned assembly code in `#1` the reason for the crash is that the code wants to access a part of memory which is not allocated for user space (i.e above 0xc0000000 that is the default physical base address for user space). Hence we set `%esp` according to function arguments derived from filename. In our case, since we just have 2 arguments i.e `argc` and `argv`, 20 is sufficient.
+
+
 ۱۵.
+
+As just mentioned above the `%esp` mod `16` must be -4.
 
 ۱۶.
 
