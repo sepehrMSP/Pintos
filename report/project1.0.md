@@ -1,17 +1,17 @@
 تمرین گروهی ۱/۰ - آشنایی با pintos
 ======================
 
-شماره گروه:
+شماره گروه: 7
 -----
 > نام و آدرس پست الکترونیکی اعضای گروه را در این قسمت بنویسید.
 
-نام و نام خانوادگی <example@example.com>
+محمدسپهر پورقناد sepehrpourghannad@yahoo.com
 
-نام و نام خانوادگی <example@example.com> 
+سید محمدصادق کشاورزی mohammadsadeghkeshavarzi@yahoo.com
 
-نام و نام خانوادگی <example@example.com> 
+فرزام زهدی نسب farzamzohdi@gmail.com
 
-نام و نام خانوادگی <example@example.com> 
+مصطفی اوجاقی m.ojaghy@gmail.com
 
 مقدمات
 ----------
