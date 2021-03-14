@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "devices/shutdown.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -48,5 +49,9 @@ syscall_handler (struct intr_frame *f UNUSED)
   else if (args[0] == SYS_PRACTICE)
     {
       f->eax = args[1] + 1;
+    }
+  else if (args[0] == SYS_HALT)
+    {
+      shutdown_power_off ();
     }
 }
