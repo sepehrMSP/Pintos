@@ -25,7 +25,7 @@ static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int parse_arg(const char *file_name, tok_t *argv);
-int push_args(int argc, tok_t *argv);
+int push_args(int argc, tok_t *argv, void **esp);
 
 
 
@@ -319,13 +319,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (!setup_stack (esp))
     goto done;
 
+  push_args(argc, argv, esp);
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
 
  done:
-  *esp = *esp - 20;
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
@@ -484,10 +484,8 @@ int
 parse_arg(const char *file_name, tok_t *argv)
 {
   size_t arg_counter = 0;
-  char file_name_copy[strlen(file_name) + 1];
-  strlcpy(file_name_copy, file_name, strlen(file_name) + 1);
   char *rest;
-  char *tok = strtok_r(file_name_copy, " ", &rest);
+  char *tok = strtok_r(file_name, " ", &rest);
 
   while (tok != NULL)
     {
@@ -502,4 +500,34 @@ parse_arg(const char *file_name, tok_t *argv)
     }
   argv[arg_counter] = NULL;
   return arg_counter; 
+}
+
+int
+push_args(int argc, tok_t *argv, void **esp)
+{
+  char *ptrs[ARG_LIMIT];
+  for (int i = 0; i < argc; i++)
+    {
+      int len = strlen(argv[i]) + 1;
+      *esp -= len;
+      strlcpy(*esp, argv[i], len);
+      ptrs[i] = *esp;
+    }
+
+  //align the stack to be 16-byte boundry at the moment of call
+  *esp -= (uint32_t) (*esp - (4*argc + 12)) % 16;
+  for (int i = argc; i >= 0; i--)
+    {
+      *esp -= 4;
+
+      ** (int **) esp = ptrs[i];
+    }
+  *esp -= 4;
+  ** (int **) esp = *esp + 4;
+  *esp -= 4;
+  ** (int **) esp = argc;
+  // push dummy address
+  *esp -= 4;
+
+  return 1;
 }
