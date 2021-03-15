@@ -68,27 +68,60 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_HALT)
     {
-        shutdown_power_off ();
+      shutdown_power_off ();
     }
   else if (args[0] == SYS_EXEC)
     {
-        if (!is_valid_addr(args, 2 * sizeof(uint32_t)) || !is_valid_str((char *) args[1]))
-          fault_terminate(f);
+      if (!is_valid_addr(args, 2 * sizeof(uint32_t)) || !is_valid_str((char *) args[1]))
+        fault_terminate(f);
+        char *filename = args[1];
+        tid_t tid = process_execute(filename);
+        if (tid == TID_ERROR)
+          {
+
+          }
     }
   else if (args[0] == SYS_WAIT)
     {
-        if (!is_valid_addr(args, 2 * sizeof(uint32_t)))
+      if (!is_valid_addr(args, 2 * sizeof(uint32_t)))
+        {
           fault_terminate(f);
+        }
+      tid_t child_tid = args[1];
+      struct thread *parent = thread_current();
+      bool is_child = false;
+      struct list_elem *e;
+      for (e = list_begin (&parent->children); e != list_end (&parent->children);
+       e = list_next (e))
+        {
+          struct thread_info *t = list_entry (e, struct thread_info, elem);
+          if (t->tid == child_tid)
+            {
+              is_child = true;
+              bool exited = t->exited;
+              if (!exited)
+                {
+                  sema_down(t->sema);
+                }
+              break;
+            }
+        }
+      if (!is_child)
+        {
+          printf("the tid is not belong to current threads' children");
+          fault_terminate(f);
+        }
     }
 }
 
 static void fault_terminate(struct intr_frame *f)
-{
+  {
     f->eax = -1;
-    printf ("%s: exit(%d)\n", &thread_current ()->name, -1);
-    thread_exit ();
-
-}
+    printf ("%s: exit(%d)\n", &thread_current()->name, -1);
+    struct thread *t = thread_current();
+    t->thread_info->exit_code = -1;
+    thread_exit();
+  }
 
 static bool is_valid_byte_addr(void *addr)
 {
@@ -110,11 +143,13 @@ static bool is_valid_addr(void *addr, size_t size)
 
 static bool is_valid_str(char *str)
 {
-    if (is_valid_byte_addr((void *) str))
+  if (is_valid_byte_addr((void *) str))
     {
-        char *kernel_str = pagedir_get_page(thread_current()->pagedir, (void *) str);
-        if (is_valid_byte_addr(str + strlen(kernel_str)))
-            return true;
+      char *kernel_str = pagedir_get_page(thread_current()->pagedir, (void *) str);
+      if (is_valid_byte_addr(str + strlen(kernel_str)))
+        {
+          return true;
+        }
     }
-    return false;
+  return false;
 }
