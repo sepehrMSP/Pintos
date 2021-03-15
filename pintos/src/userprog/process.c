@@ -19,9 +19,15 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#define ARG_LIMIT 100
+
 static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
+int parse_arg(const char *file_name, tok_t *argv);
+int push_args(int argc, tok_t *argv, void **esp);
+
+
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -219,6 +225,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
+  tok_t argv[ARG_LIMIT];
+  int argc = parse_arg(file_name, argv);
+
 
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
@@ -227,7 +236,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  file = filesys_open (file_name);
+  file = filesys_open (argv[0]);
   if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
@@ -310,13 +319,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (!setup_stack (esp))
     goto done;
 
+  push_args(argc, argv, esp);
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
 
  done:
-  *esp = *esp - 20;
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
@@ -468,4 +477,57 @@ install_page (void *upage, void *kpage, bool writable)
      address, then map our page there. */
   return (pagedir_get_page (t->pagedir, upage) == NULL
           && pagedir_set_page (t->pagedir, upage, kpage, writable));
+}
+
+/* Gets filename and returns argc and set argv*/
+int
+parse_arg(const char *file_name, tok_t *argv)
+{
+  size_t arg_counter = 0;
+  char *rest;
+  char *tok = strtok_r(file_name, " ", &rest);
+
+  while (tok != NULL)
+    {
+      argv[arg_counter] = tok; 
+      arg_counter++;
+      if(arg_counter == ARG_LIMIT)
+        { 
+          ASSERT(0);
+          break;
+        }
+      tok = strtok_r(NULL, " ", &rest);
+    }
+  argv[arg_counter] = NULL;
+  return arg_counter; 
+}
+
+int
+push_args(int argc, tok_t *argv, void **esp)
+{
+  char *ptrs[ARG_LIMIT];
+  for (int i = 0; i < argc; i++)
+    {
+      int len = strlen(argv[i]) + 1;
+      *esp -= len;
+      strlcpy(*esp, argv[i], len);
+      ptrs[i] = *esp;
+    }
+
+  //align the stack to be 16-byte boundry at the moment of call
+  *esp -= (uint32_t) (*esp - (4*argc + 12)) % 16;
+  for (int i = argc; i >= 0; i--)
+    {
+      *esp -= 4;
+
+      ** (int **) esp = ptrs[i];
+    }
+  *esp -= 4;
+  ** (int **) esp = *esp + 4;
+  *esp -= 4;
+  ** (int **) esp = argc;
+  // push dummy address
+  *esp -= 4;
+
+  return 1;
 }
