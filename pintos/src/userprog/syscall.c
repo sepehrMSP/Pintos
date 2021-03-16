@@ -74,12 +74,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
       if (!is_valid_addr(args, 2 * sizeof(uint32_t)) || !is_valid_str((char *) args[1]))
         fault_terminate(f);
-        char *filename = args[1];
-        tid_t tid = process_execute(filename);
-        if (tid == TID_ERROR)
-          {
+      char *filename = args[1];
+      tid_t tid = process_execute(filename);
+      if (tid == TID_ERROR)
+        {
 
-          }
+        }
     }
   else if (args[0] == SYS_WAIT)
     {
