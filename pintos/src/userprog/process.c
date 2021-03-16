@@ -26,6 +26,7 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int parse_arg(const char *file_name, tok_t *argv);
 int push_args(int argc, tok_t *argv, void **esp);
+void get_file_name(const tok_t file_name, tok_t *out);
 
 
 
@@ -47,8 +48,11 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  char *bin_file_name;
+  get_file_name(file_name, &bin_file_name);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (bin_file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   return tid;
@@ -489,17 +493,17 @@ parse_arg(const char *file_name, tok_t *argv)
 
   while (tok != NULL)
     {
-      argv[arg_counter] = tok; 
+      argv[arg_counter] = tok;
       arg_counter++;
       if(arg_counter == ARG_LIMIT)
-        { 
+        {
           ASSERT(0);
           break;
         }
       tok = strtok_r(NULL, " ", &rest);
     }
   argv[arg_counter] = NULL;
-  return arg_counter; 
+  return arg_counter;
 }
 
 int
@@ -513,6 +517,8 @@ push_args(int argc, tok_t *argv, void **esp)
       strlcpy(*esp, argv[i], len);
       ptrs[i] = *esp;
     }
+
+  ptrs[argc] = NULL;
 
   //align the stack to be 16-byte boundry at the moment of call
   *esp -= (uint32_t) (*esp - (4*argc + 12)) % 16;
@@ -530,4 +536,11 @@ push_args(int argc, tok_t *argv, void **esp)
   *esp -= 4;
 
   return 1;
+}
+
+void
+get_file_name(const tok_t file_name, tok_t *out)
+{
+    char *rest;
+    *out = strtok_r(file_name, " ", &rest);
 }
