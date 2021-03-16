@@ -107,7 +107,7 @@ struct thread
    struct list children;
    struct thread_info *thread_info;
 
-   struct semaphore sema;
+   // struct semaphore sema;
 
    struct list locks;
 
@@ -119,9 +119,10 @@ struct thread
 struct thread_info
    {
       struct list_elem elem;
-      struct semaphore *sema;
+      struct semaphore sema;
       tid_t tid;
       bool exited;
+      bool orphaned;
       int exit_code;
    };
 

@@ -184,8 +184,9 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-
   add_to_children(t);
+  sema_init(&t->thread_info->sema, 0);
+  t->thread_info->exited = false;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -296,7 +297,8 @@ thread_exit (void)
   intr_disable ();
   list_remove (&thread_current()->allelem);
   //WARNING
-  sema_up(&thread_current ()->sema);
+  sema_up(&thread_current ()->thread_info->sema);
+  thread_current ()->thread_info->exited = true;
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -596,9 +598,9 @@ void
 add_to_children(struct thread *child)
 {
   struct thread *parent = thread_current();
-  struct thread_info *c_thread = malloc(sizeof *c_thread);
-  c_thread->tid = child->tid;
-  list_push_back (&parent->children, &c_thread->elem);
-  child->thread_info = c_thread;
+  struct thread_info *c_info = malloc(sizeof(struct thread_info));
+  c_info->tid = child->tid;
+  list_push_back (&parent->children, &c_info->elem);
+  child->thread_info = c_info;
   return;
 }

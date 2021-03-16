@@ -80,6 +80,7 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
 
         }
+      f->eax = tid;
     }
   else if (args[0] == SYS_WAIT)
     {
@@ -88,29 +89,7 @@ syscall_handler (struct intr_frame *f UNUSED)
           fault_terminate(f);
         }
       tid_t child_tid = args[1];
-      struct thread *parent = thread_current();
-      bool is_child = false;
-      struct list_elem *e;
-      for (e = list_begin (&parent->children); e != list_end (&parent->children);
-       e = list_next (e))
-        {
-          struct thread_info *t = list_entry (e, struct thread_info, elem);
-          if (t->tid == child_tid)
-            {
-              is_child = true;
-              bool exited = t->exited;
-              if (!exited)
-                {
-                  sema_down(t->sema);
-                }
-              break;
-            }
-        }
-      if (!is_child)
-        {
-          printf("the tid is not belong to current threads' children");
-          fault_terminate(f);
-        }
+      f->eax = process_wait(child_tid);
     }
 }
 

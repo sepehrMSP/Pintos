@@ -21,7 +21,6 @@
 
 #define ARG_LIMIT 100
 
-static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int parse_arg(const char *file_name, tok_t *argv);
@@ -40,7 +39,6 @@ process_execute (const char *file_name)
   char *fn_copy;
   tid_t tid;
 
-  sema_init (&temporary, 0);
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -99,10 +97,35 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED)
+process_wait (tid_t child_tid)
 {
-  sema_down (&temporary);
-  return 0;
+  struct thread *parent = thread_current();
+  bool is_child = false;
+  struct list_elem *e;
+  struct thread_info *t;
+  for (e = list_begin (&parent->children); e != list_end (&parent->children);
+    e = list_next (e))
+    {
+      t = list_entry (e, struct thread_info, elem);
+      if (t->tid == child_tid)
+        {
+          is_child = true;
+          bool exited = t->exited;
+          if (!exited)
+            {
+              sema_down(&t->sema);
+            }
+          break;
+        }
+    }
+
+  if (!is_child)
+    {
+      printf("the tid is not belong to current threads' children");
+      //WARNING : DO STH FOR THIS SHIT !!!
+    }
+
+  return t->exit_code;
 }
 
 /* Free the current process's resources. */
@@ -128,7 +151,6 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  sema_up (&temporary);
 }
 
 /* Sets up the CPU for running user code in the current
