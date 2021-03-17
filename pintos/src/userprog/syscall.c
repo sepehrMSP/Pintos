@@ -53,9 +53,13 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_WRITE)
     {
-      if (!is_valid_addr(args, 2 * sizeof(uint32_t)))
-        fault_terminate(f);
+      if (!is_valid_addr(args, 4 * sizeof(uint32_t)) || !is_valid_addr(args[2], args[3]))
+        {
+          fault_terminate(f);
+        }
       int fd = args[1];
+      lock_acquire(&global_files_lock);
+
       if (fd == STDOUT_FILENO)
         {
           char *buffer = args[2];
@@ -65,6 +69,21 @@ syscall_handler (struct intr_frame *f UNUSED)
               printf("%c", buffer[i]);
             }
         }
+      else
+        {
+
+          void *buffer = args[2];
+          off_t size = args[3];
+
+          struct thread_file *tf = get_thread_file(fd);
+          if (tf == NULL)
+            {
+              lock_release(&global_files_lock);
+              fault_terminate(f);
+            }
+          f->eax = file_write(tf->file, buffer, size);
+        }
+      lock_release(&global_files_lock);
     }
   else if (args[0] == SYS_PRACTICE)
     {
@@ -195,11 +214,6 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       f->eax = file_read(tf->file, buffer, size);
 
-      lock_release(&global_files_lock);
-    }
-  else if (args[0] == SYS_WRITE)
-    {
-      lock_acquire(&global_files_lock);
       lock_release(&global_files_lock);
     }
   else if (args[0] == SYS_SEEK)
