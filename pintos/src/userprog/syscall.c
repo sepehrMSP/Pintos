@@ -127,7 +127,21 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_OPEN)
     {
+      if (!is_valid_addr(args, 2 * sizeof(uint32_t)) || !is_valid_str(args[1]))
+        {
+          fault_terminate(f);
+        }
       lock_acquire(&global_files_lock);
+      const char *name = args[1];
+      struct file *opened_file = filesys_open(name);
+      if (opened_file == NULL)
+        {
+          f->eax = -1;
+        }
+      else
+        {
+          f->eax = add_to_files(thread_current(), opened_file);
+        }
       lock_release(&global_files_lock);
     }
   else if (args[0] == SYS_REMOVE)

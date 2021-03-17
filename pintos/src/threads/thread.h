@@ -119,6 +119,7 @@ struct thread
 
    struct file* bin_file;
    struct list files;
+   int fd_count;
 
   };
 
@@ -133,6 +134,15 @@ struct thread_info
       enum exit_state state;
    };
 
+/* This struct saves files which have been opened by the thread and is STILL open*/
+struct thread_file 
+   {
+
+      struct list_elem elem;
+      int fd;
+      struct file* file;
+
+   };
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
    Controlled by kernel command-line option "-o mlfqs". */
@@ -168,5 +178,8 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+// our functions
+int add_to_files(struct thread *t, struct file *f);
 
 #endif /* threads/thread.h */

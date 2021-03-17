@@ -72,6 +72,7 @@ static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 void add_to_children(struct thread *child);
+int add_to_files(struct thread *t, struct file *f);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -468,12 +469,14 @@ init_thread (struct thread *t, const char *name, int priority)
   memset (t, 0, sizeof *t);
 
   list_init(&t->children);
+  list_init(&t->files);
 
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->fd_count = 2;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -604,4 +607,15 @@ add_to_children(struct thread *child)
   child->thread_info = c_info;
   c_info->state = DEFAULT;
   return;
+}
+
+int
+add_to_files(struct thread *t, struct file *f)
+{
+  struct thread_file *tf = malloc(sizeof(struct thread_file));
+  tf->file = f;
+  tf->fd = t->fd_count;
+  t->fd_count += 1;
+  list_push_back(&t->files, tf);
+  return tf->fd;
 }
