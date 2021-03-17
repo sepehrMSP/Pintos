@@ -42,6 +42,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       if (!is_valid_addr(args, 2 * sizeof(uint32_t)))
         fault_terminate(f);
       f->eax = args[1];
+      thread_current()->thread_info->exit_code = args[1];
       printf ("%s: exit(%d)\n", &thread_current ()->name, args[1]);
       thread_exit ();
     }

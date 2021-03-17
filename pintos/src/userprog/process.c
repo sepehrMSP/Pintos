@@ -101,6 +101,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid)
 {
+  int exit_code;
   struct thread *parent = thread_current();
   bool is_child = false;
   struct list_elem *e;
@@ -116,6 +117,9 @@ process_wait (tid_t child_tid)
           if (!exited)
             {
               sema_down(&t->sema);
+              list_remove(e);
+              exit_code = t->exit_code;
+              free(t);
             }
           break;
         }
@@ -127,7 +131,7 @@ process_wait (tid_t child_tid)
     }
   else
     {
-      return t->exit_code;
+      return exit_code;
     }
 }
 
