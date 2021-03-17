@@ -182,8 +182,33 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_CLOSE)
     {
+      if (!is_valid_addr(args, 2 * sizeof(uint32_t)))
+        {
+          fault_terminate(f);
+        }
       lock_acquire(&global_files_lock);
+      int fd = args[1];
+      struct thread *t = thread_current();
+      struct list_elem *e;
+      bool fd_found = false;
+      for (e = list_begin (&t->files); e != list_end (&t->files);
+          e = list_next (e))
+          {
+            struct thread_file *tf = list_entry (e, struct thread_file, elem);
+            if (tf->fd == fd)
+              {
+                file_close(tf->file);
+                fd_found = true;
+                list_remove(e);
+                free(tf);
+                break;
+              }
+          }
       lock_release(&global_files_lock);
+      if (!fd_found)
+        {
+          fault_terminate(f);
+        }
     }
 }
 
