@@ -121,11 +121,12 @@ process_wait (tid_t child_tid)
 
   if (!is_child)
     {
-      printf("the tid is not belong to current threads' children");
-      //WARNING : DO STH FOR THIS SHIT !!!
+      return -1;
     }
-
-  return t->exit_code;
+  else
+    {
+      return t->exit_code;
+    }
 }
 
 /* Free the current process's resources. */
