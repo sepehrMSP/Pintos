@@ -18,15 +18,14 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/thread.h"
 
 #define ARG_LIMIT 100
 
-static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int parse_arg(const char *file_name, tok_t *argv);
 int push_args(int argc, tok_t *argv, void **esp);
-
 
 
 /* Starts a new thread running a user program loaded from
@@ -37,9 +36,9 @@ tid_t
 process_execute (const char *file_name)
 {
   char *fn_copy;
+  char *name;
   tid_t tid;
 
-  sema_init (&temporary, 0);
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page (0);
@@ -47,8 +46,13 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  size_t name_len = strcspn (file_name, " ") + 1;
+  name = malloc (name_len * sizeof (char));
+  strlcpy (name, file_name, name_len);
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
+  free(name);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   return tid;
@@ -95,10 +99,40 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED)
+process_wait (tid_t child_tid)
 {
-  sema_down (&temporary);
-  return 0;
+  int exit_code;
+  struct thread *parent = thread_current();
+  bool is_child = false;
+  struct list_elem *e;
+  struct thread_info *t;
+  for (e = list_begin (&parent->children); e != list_end (&parent->children);
+    e = list_next (e))
+    {
+      t = list_entry (e, struct thread_info, elem);
+      if (t->tid == child_tid)
+        {
+          is_child = true;
+          bool exited = t->exited;
+          if (!exited)
+            {
+              sema_down(&t->sema);
+              list_remove(e);
+              exit_code = t->exit_code;
+              free(t);
+            }
+          break;
+        }
+    }
+
+  if (!is_child)
+    {
+      return -1;
+    }
+  else
+    {
+      return exit_code;
+    }
 }
 
 /* Free the current process's resources. */
@@ -124,7 +158,6 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
-  sema_up (&temporary);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -240,6 +273,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   if (file == NULL)
     {
       printf ("load: %s: open failed\n", file_name);
+      t->thread_info->state = LOAD_FAILED;
       goto done;
     }
 
@@ -489,17 +523,17 @@ parse_arg(const char *file_name, tok_t *argv)
 
   while (tok != NULL)
     {
-      argv[arg_counter] = tok; 
+      argv[arg_counter] = tok;
       arg_counter++;
       if(arg_counter == ARG_LIMIT)
-        { 
+        {
           ASSERT(0);
           break;
         }
       tok = strtok_r(NULL, " ", &rest);
     }
   argv[arg_counter] = NULL;
-  return arg_counter; 
+  return arg_counter;
 }
 
 int
@@ -513,6 +547,8 @@ push_args(int argc, tok_t *argv, void **esp)
       strlcpy(*esp, argv[i], len);
       ptrs[i] = *esp;
     }
+
+  ptrs[argc] = NULL;
 
   //align the stack to be 16-byte boundry at the moment of call
   *esp -= (uint32_t) (*esp - (4*argc + 12)) % 16;

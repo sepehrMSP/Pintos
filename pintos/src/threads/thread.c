@@ -11,6 +11,7 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -70,6 +71,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
+void add_to_children(struct thread *child);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -182,6 +184,9 @@ thread_create (const char *name, int priority,
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
+  add_to_children(t);
+  sema_init(&t->thread_info->sema, 0);
+  t->thread_info->exited = false;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame (t, sizeof *kf);
@@ -291,6 +296,9 @@ thread_exit (void)
      when it calls thread_schedule_tail(). */
   intr_disable ();
   list_remove (&thread_current()->allelem);
+  //WARNING
+  sema_up(&thread_current ()->thread_info->sema);
+  thread_current ()->thread_info->exited = true;
   thread_current ()->status = THREAD_DYING;
   schedule ();
   NOT_REACHED ();
@@ -458,6 +466,9 @@ init_thread (struct thread *t, const char *name, int priority)
   ASSERT (name != NULL);
 
   memset (t, 0, sizeof *t);
+
+  list_init(&t->children);
+
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
@@ -582,3 +593,15 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void 
+add_to_children(struct thread *child)
+{
+  struct thread *parent = thread_current();
+  struct thread_info *c_info = malloc(sizeof(struct thread_info));
+  c_info->tid = child->tid;
+  list_push_back (&parent->children, &c_info->elem);
+  child->thread_info = c_info;
+  c_info->state = DEFAULT;
+  return;
+}

@@ -16,6 +16,12 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+enum exit_state
+   {
+      DEFAULT,
+      SUCCESSFUL,
+      LOAD_FAILED
+   };
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -102,7 +108,30 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+   /* Our changes*/
+   struct list children;
+   struct thread_info *thread_info;
+
+   // struct semaphore sema;
+
+   struct list locks;
+
+   struct file* bin_file;
+   struct list files;
+
   };
+
+struct thread_info
+   {
+      struct list_elem elem;
+      struct semaphore sema;
+      tid_t tid;
+      bool exited;
+      bool orphaned;
+      int exit_code;
+      enum exit_state state;
+   };
 
 /* If false (default), use round-robin scheduler.
    If true, use multi-level feedback queue scheduler.
