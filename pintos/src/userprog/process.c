@@ -25,8 +25,6 @@ static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int parse_arg(const char *file_name, tok_t *argv);
 int push_args(int argc, tok_t *argv, void **esp);
-void get_file_name(const tok_t file_name, tok_t *out);
-
 
 
 /* Starts a new thread running a user program loaded from
@@ -37,6 +35,7 @@ tid_t
 process_execute (const char *file_name)
 {
   char *fn_copy;
+  char *name;
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
@@ -46,11 +45,12 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
-  char *bin_file_name;
-  get_file_name(file_name, &bin_file_name);
+  size_t name_len = strcspn (file_name, " ") + 1;
+  name = malloc (name_len * sizeof (char));
+  strlcpy (name, file_name, name_len);
 
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (bin_file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   return tid;
@@ -558,11 +558,4 @@ push_args(int argc, tok_t *argv, void **esp)
   *esp -= 4;
 
   return 1;
-}
-
-void
-get_file_name(const tok_t file_name, tok_t *out)
-{
-    char *rest;
-    *out = strtok_r(file_name, " ", &rest);
 }
