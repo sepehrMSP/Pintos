@@ -12,6 +12,7 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "filesys/file.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -73,7 +74,6 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 void add_to_children(struct thread *child);
 int add_to_files(struct thread *t, struct file *f);
-
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -296,9 +296,14 @@ thread_exit (void)
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
-  list_remove (&thread_current()->allelem);
+  if (thread_current ()->bin_file != NULL)
+    {
+      file_allow_write (thread_current ()->bin_file);
+      file_close (thread_current ()->bin_file);
+    }
+  list_remove (&thread_current ()->allelem);
   //WARNING
-  sema_up(&thread_current ()->thread_info->sema);
+  sema_up (&thread_current ()->thread_info->sema);
   thread_current ()->thread_info->exited = true;
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -597,7 +602,7 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-void 
+void
 add_to_children(struct thread *child)
 {
   struct thread *parent = thread_current();

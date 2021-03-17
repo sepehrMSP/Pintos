@@ -276,7 +276,8 @@ load (const char *file_name, void (**eip) (void), void **esp)
       t->thread_info->state = LOAD_FAILED;
       goto done;
     }
-
+  t->bin_file = filesys_open (argv[0]);
+  file_deny_write (t->bin_file);
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
