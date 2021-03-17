@@ -7,16 +7,19 @@
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include "lib/string.h"
+#include "threads/synch.h"
 
 static void syscall_handler (struct intr_frame *);
 static void fault_terminate (struct intr_frame *);
 static bool is_valid_byte_addr (void *);
 static bool is_valid_addr (void *, size_t);
 static bool is_valid_str (char *);
+static struct lock global_files_lock;
 
 void
 syscall_init (void)
 {
+  lock_init(&global_files_lock);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -108,6 +111,51 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       tid_t child_tid = args[1];
       f->eax = process_wait(child_tid);
+    }
+  else if (args[0] == SYS_CREATE)
+    {
+      lock_acquire(&global_files_lock);
+      lock_release(&global_files_lock);
+    }
+  else if (args[0] == SYS_OPEN)
+    {
+      lock_acquire(&global_files_lock);
+      lock_release(&global_files_lock);
+    }
+  else if (args[0] == SYS_REMOVE)
+    {
+      lock_acquire(&global_files_lock);
+      lock_release(&global_files_lock);
+    }
+  else if (args[0] == SYS_FILESIZE)
+    {
+      lock_acquire(&global_files_lock);
+      lock_release(&global_files_lock);
+    }
+  else if (args[0] == SYS_READ)
+    {
+      lock_acquire(&global_files_lock);
+      lock_release(&global_files_lock);
+    }
+  else if (args[0] == SYS_WRITE)
+    {
+      lock_acquire(&global_files_lock);
+      lock_release(&global_files_lock);
+    }
+  else if (args[0] == SYS_SEEK)
+    {
+      lock_acquire(&global_files_lock);
+      lock_release(&global_files_lock);
+    }
+  else if (args[0] == SYS_TELL)
+    {
+      lock_acquire(&global_files_lock);
+      lock_release(&global_files_lock);
+    }
+  else if (args[0] == SYS_CLOSE)
+    {
+      lock_acquire(&global_files_lock);
+      lock_release(&global_files_lock);
     }
 }
 
