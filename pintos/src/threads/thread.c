@@ -602,5 +602,6 @@ add_to_children(struct thread *child)
   c_info->tid = child->tid;
   list_push_back (&parent->children, &c_info->elem);
   child->thread_info = c_info;
+  c_info->state = DEFAULT;
   return;
 }

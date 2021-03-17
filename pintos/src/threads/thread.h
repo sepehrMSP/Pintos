@@ -16,6 +16,12 @@ enum thread_status
     THREAD_DYING        /* About to be destroyed. */
   };
 
+enum exit_state
+   {
+      DEFAULT,
+      SUCCESSFUL,
+      LOAD_FAILED
+   };
 /* Thread identifier type.
    You can redefine this to whatever type you like. */
 typedef int tid_t;
@@ -124,6 +130,7 @@ struct thread_info
       bool exited;
       bool orphaned;
       int exit_code;
+      enum exit_state state;
    };
 
 /* If false (default), use round-robin scheduler.

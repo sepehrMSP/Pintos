@@ -74,13 +74,30 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
       if (!is_valid_addr(args, 2 * sizeof(uint32_t)) || !is_valid_str((char *) args[1]))
         fault_terminate(f);
-      char *filename = args[1];
-      tid_t tid = process_execute(filename);
-      if (tid == TID_ERROR)
-        {
 
+      char *file_name = args[1];
+      struct file *file = NULL;
+
+      size_t name_len = strcspn (file_name, " ") + 1;
+      char *name = malloc (name_len * sizeof (char));
+      strlcpy (name, file_name, name_len);
+
+      file = filesys_open (name);
+      free(name);
+      if (file == NULL)
+        {
+          f->eax = -1;
         }
-      f->eax = tid;
+      else
+        {
+          file_close (file);
+          tid_t tid = process_execute(file_name);
+          if (tid == TID_ERROR)
+            {
+
+            }
+          f->eax = tid;
+        }
     }
   else if (args[0] == SYS_WAIT)
     {
