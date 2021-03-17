@@ -115,7 +115,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_CREATE)
     {
-      if (!is_valid_addr(args, 2 * sizeof(uint32_t)) || !is_valid_str(args[1]))
+      if (!is_valid_addr(args, 3 * sizeof(uint32_t)) || !is_valid_str(args[1]))
         {
           fault_terminate(f);
         }
@@ -132,7 +132,13 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_REMOVE)
     {
+      if (!is_valid_addr(args, 2 * sizeof(uint32_t)) || !is_valid_str(args[1]))
+        {
+          fault_terminate(f);
+        }
       lock_acquire(&global_files_lock);
+      const char *name = args[1];
+      f->eax = filesys_remove(name);
       lock_release(&global_files_lock);
     }
   else if (args[0] == SYS_FILESIZE)
