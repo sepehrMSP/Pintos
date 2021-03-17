@@ -15,6 +15,7 @@ static void fault_terminate (struct intr_frame *);
 static bool is_valid_byte_addr (void *);
 static bool is_valid_addr (void *, size_t);
 static bool is_valid_str (char *);
+struct thread_file *get_thread_file (int);
 static struct lock global_files_lock;
 
 void
@@ -157,12 +158,43 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_FILESIZE)
     {
+      if (!is_valid_addr(args, 2 * sizeof(uint32_t)))
+        {
+          fault_terminate(f);
+        }
       lock_acquire(&global_files_lock);
+
+      int fd = args[1];
+      struct thread_file *tf = get_thread_file(fd);
+      if (tf == NULL)
+        {
+          lock_release(&global_files_lock);
+          fault_terminate(f);
+        }
+      f->eax = file_length(tf->file);
+
       lock_release(&global_files_lock);
     }
   else if (args[0] == SYS_READ)
     {
+      if (!is_valid_addr(args, 4 * sizeof(uint32_t)) || !is_valid_addr(args[2], args[3]))
+        {
+          fault_terminate(f);
+        }
       lock_acquire(&global_files_lock);
+
+      int fd = args[1];
+      void *buffer = args[2];
+      off_t size = args[3];
+
+      struct thread_file *tf = get_thread_file(fd);
+      if (tf == NULL)
+        {
+          lock_release(&global_files_lock);
+          fault_terminate(f);
+        }
+      f->eax = file_read(tf->file, buffer, size);
+
       lock_release(&global_files_lock);
     }
   else if (args[0] == SYS_WRITE)
@@ -177,7 +209,21 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_TELL)
     {
+      if (!is_valid_addr(args, 2 * sizeof(uint32_t)))
+        {
+          fault_terminate(f);
+        }
       lock_acquire(&global_files_lock);
+
+      int fd = args[1];
+      struct thread_file *tf = get_thread_file(fd);
+      if (tf == NULL)
+        {
+          lock_release(&global_files_lock);
+          fault_terminate(f);
+        }
+      f->eax = file_tell(tf->file);
+
       lock_release(&global_files_lock);
     }
   else if (args[0] == SYS_CLOSE)
@@ -187,28 +233,19 @@ syscall_handler (struct intr_frame *f UNUSED)
           fault_terminate(f);
         }
       lock_acquire(&global_files_lock);
+
       int fd = args[1];
-      struct thread *t = thread_current();
-      struct list_elem *e;
-      bool fd_found = false;
-      for (e = list_begin (&t->files); e != list_end (&t->files);
-          e = list_next (e))
-          {
-            struct thread_file *tf = list_entry (e, struct thread_file, elem);
-            if (tf->fd == fd)
-              {
-                file_close(tf->file);
-                fd_found = true;
-                list_remove(e);
-                free(tf);
-                break;
-              }
-          }
-      lock_release(&global_files_lock);
-      if (!fd_found)
+      struct thread_file *tf = get_thread_file(fd);
+      if (tf == NULL)
         {
+          lock_release(&global_files_lock);
           fault_terminate(f);
         }
+      file_close(tf->file);
+      list_remove(&tf->elem);
+      free(tf);
+
+      lock_release(&global_files_lock);
     }
 }
 
@@ -250,4 +287,19 @@ static bool is_valid_str(char *str)
         }
     }
   return false;
+}
+
+struct thread_file *
+get_thread_file (int fd)
+{
+  struct thread *t = thread_current();
+  struct list_elem *e;
+  for (e = list_begin (&t->files); e != list_end (&t->files);
+      e = list_next (e))
+      {
+        struct thread_file *tf = list_entry (e, struct thread_file, elem);
+        if (tf->fd == fd)
+          return tf;
+      }
+  return NULL;
 }
