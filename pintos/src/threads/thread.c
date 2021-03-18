@@ -77,6 +77,8 @@ static tid_t allocate_tid (void);
 struct thread_info *add_to_children(struct thread *child, struct thread_info *c_info);
 int add_to_files(struct thread *t, struct file *f);
 struct thread_info *get_thread_info(struct thread *p, tid_t c_tid);
+void free_thread_files(struct thread *t);
+
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -314,9 +316,9 @@ thread_exit (void)
       file_allow_write (thread_current ()->bin_file);
       file_close (thread_current ()->bin_file);
     }
+  free_thread_files(thread_current());
   lock_release(&global_files_lock);
   list_remove (&thread_current ()->allelem);
-  //WARNING
   sema_up (&thread_current ()->thread_info->sema);
   thread_current ()->thread_info->exited = true;
   thread_current ()->status = THREAD_DYING;
@@ -657,4 +659,17 @@ get_thread_info(struct thread *p, tid_t c_tid)
         }
     }
   return NULL;
+}
+
+void
+free_thread_files(struct thread *t)
+{
+  struct list_elem *e;
+  while(!list_empty(&t->files))
+    {
+      e = list_pop_front(&t->files);
+      struct thread_file *tf = list_entry(e, struct thread_file, elem);
+      file_close(tf->file);
+      free(tf);
+    }
 }

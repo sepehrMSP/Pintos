@@ -112,11 +112,6 @@ struct thread
    /* Our changes*/
    struct list children;
    struct thread_info *thread_info;
-
-   // struct semaphore sema;
-
-   // struct list locks;
-
    struct file* bin_file;
    struct list files;
    int fd_count;
