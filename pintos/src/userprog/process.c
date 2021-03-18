@@ -27,6 +27,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int parse_arg(const char *file_name, tok_t *argv);
 int push_args(int argc, tok_t *argv, void **esp);
 
+extern struct lock global_files_lock;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -52,7 +53,7 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
-  free(name);
+  // free(name);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   return tid;
@@ -73,11 +74,18 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+  sema_up(&thread_current()->thread_info->load_sema);
+
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success)
-    thread_exit ();
+    {
+      printf ("%s: exit(%d)\n", &thread_current()->name, -1);
+      struct thread *t = thread_current();
+      t->thread_info->exit_code = -1;
+      thread_exit ();
+    }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
@@ -117,10 +125,11 @@ process_wait (tid_t child_tid)
           if (!exited)
             {
               sema_down(&t->sema);
-              list_remove(e);
-              exit_code = t->exit_code;
-              free(t);
             }
+          list_remove(e);
+          // printf("parent tid: %d \tthread info tid: %d\n",parent->tid, t->tid);
+          exit_code = t->exit_code;
+          free(t);
           break;
         }
     }
@@ -261,11 +270,14 @@ load (const char *file_name, void (**eip) (void), void **esp)
   tok_t argv[ARG_LIMIT];
   int argc = parse_arg(file_name, argv);
 
-
+  lock_acquire(&global_files_lock);
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL)
-    goto done;
+    {
+      t->thread_info->state = LOAD_FAILED;
+      goto done;
+    }
   process_activate ();
 
   /* Open executable file. */
@@ -287,6 +299,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phnum > 1024)
     {
       printf ("load: %s: error loading executable\n", file_name);
+      t->thread_info->state = LOAD_FAILED;
       goto done;
     }
 
@@ -297,11 +310,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
       struct Elf32_Phdr phdr;
 
       if (file_ofs < 0 || file_ofs > file_length (file))
-        goto done;
+        {
+          t->thread_info->state = LOAD_FAILED;
+          goto done;
+        }
       file_seek (file, file_ofs);
 
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
-        goto done;
+        {
+          t->thread_info->state = LOAD_FAILED;
+          goto done;
+        }
       file_ofs += sizeof phdr;
       switch (phdr.p_type)
         {
@@ -315,7 +334,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
         case PT_DYNAMIC:
         case PT_INTERP:
         case PT_SHLIB:
-          goto done;
+          {
+            t->thread_info->state = LOAD_FAILED;
+            goto done;
+          }
         case PT_LOAD:
           if (validate_segment (&phdr, file))
             {
@@ -341,17 +363,29 @@ load (const char *file_name, void (**eip) (void), void **esp)
                 }
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
-                goto done;
+                {
+                  t->thread_info->state = LOAD_FAILED;
+                  goto done;
+                }
             }
           else
-            goto done;
+            {
+              t->thread_info->state = LOAD_FAILED;
+              goto done;
+            }
           break;
         }
     }
 
   /* Set up stack. */
   if (!setup_stack (esp))
-    goto done;
+    {
+      t->thread_info->state = LOAD_FAILED;
+      goto done;
+    }
+
+  t->bin_file = filesys_open (argv[0]);
+  file_deny_write (t->bin_file);
 
   push_args(argc, argv, esp);
   /* Start address. */
@@ -362,6 +396,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
+  lock_release(&global_files_lock);
   return success;
 }
 

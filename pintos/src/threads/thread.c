@@ -12,9 +12,12 @@
 #include "threads/synch.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "filesys/file.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
+
+extern struct lock global_files_lock;
 
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
@@ -71,7 +74,10 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-void add_to_children(struct thread *child);
+struct thread_info *add_to_children(struct thread *child, struct thread_info *c_info);
+int add_to_files(struct thread *t, struct file *f);
+struct thread_info *get_thread_info(struct thread *p, tid_t c_tid);
+void free_thread_files(struct thread *t);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -177,14 +183,23 @@ thread_create (const char *name, int priority,
   ASSERT (function != NULL);
 
   /* Allocate thread. */
+  struct thread_info *c_info = malloc(sizeof(struct thread_info));
+  if (c_info == NULL)
+    {
+      return TID_ERROR;
+    }
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
-    return TID_ERROR;
+    {
+      free(c_info);
+      return TID_ERROR;
+    }
 
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  add_to_children(t);
+  add_to_children(t, c_info);
+  //WANRNING : refactor !!!
   sema_init(&t->thread_info->sema, 0);
   t->thread_info->exited = false;
 
@@ -294,10 +309,17 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
+  lock_acquire(&global_files_lock);
   intr_disable ();
-  list_remove (&thread_current()->allelem);
-  //WARNING
-  sema_up(&thread_current ()->thread_info->sema);
+  if (thread_current ()->bin_file != NULL)
+    {
+      file_allow_write (thread_current ()->bin_file);
+      file_close (thread_current ()->bin_file);
+    }
+  free_thread_files(thread_current());
+  lock_release(&global_files_lock);
+  list_remove (&thread_current ()->allelem);
+  sema_up (&thread_current ()->thread_info->sema);
   thread_current ()->thread_info->exited = true;
   thread_current ()->status = THREAD_DYING;
   schedule ();
@@ -468,12 +490,14 @@ init_thread (struct thread *t, const char *name, int priority)
   memset (t, 0, sizeof *t);
 
   list_init(&t->children);
+  list_init(&t->files);
 
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  t->fd_count = 2;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -594,14 +618,58 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-void 
-add_to_children(struct thread *child)
+struct thread_info *
+add_to_children(struct thread *child, struct thread_info *c_info)
 {
   struct thread *parent = thread_current();
-  struct thread_info *c_info = malloc(sizeof(struct thread_info));
   c_info->tid = child->tid;
   list_push_back (&parent->children, &c_info->elem);
+  sema_init(&c_info->load_sema, 0);
   child->thread_info = c_info;
   c_info->state = DEFAULT;
-  return;
+  return c_info;
+}
+
+int
+add_to_files(struct thread *t, struct file *f)
+{
+  struct thread_file *tf = malloc(sizeof(struct thread_file));
+  if (tf != NULL)
+    {
+      tf->file = f;
+      tf->fd = t->fd_count;
+      t->fd_count += 1;
+      list_push_back(&t->files, tf);
+      return tf->fd;
+    }
+  return -1;
+}
+
+struct thread_info *
+get_thread_info(struct thread *p, tid_t c_tid)
+{
+  struct list_elem *e;
+  for (e = list_begin (&p->children); e != list_end (&p->children);
+       e = list_next (e))
+    {
+      struct thread_info *ti =  list_entry (e, struct thread_info, elem);
+      if (c_tid == ti->tid)
+        {
+          return ti;
+        }
+    }
+  return NULL;
+}
+
+void
+free_thread_files(struct thread *t)
+{
+  struct list_elem *e;
+  while(!list_empty(&t->files))
+    {
+      e = list_pop_front(&t->files);
+      struct thread_file *tf = list_entry(e, struct thread_file, elem);
+      file_close(tf->file);
+      free(tf);
+    }
 }
