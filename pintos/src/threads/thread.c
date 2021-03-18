@@ -74,7 +74,7 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-void add_to_children(struct thread *child);
+struct thread_info *add_to_children(struct thread *child, struct thread_info *c_info);
 int add_to_files(struct thread *t, struct file *f);
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -180,14 +180,22 @@ thread_create (const char *name, int priority,
   ASSERT (function != NULL);
 
   /* Allocate thread. */
+  struct thread_info *c_info = malloc(sizeof(struct thread_info));
+  if (c_info == NULL)
+    {
+      return TID_ERROR;
+    }
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
-    return TID_ERROR;
+    {
+      free(c_info);
+      return TID_ERROR;
+    }
 
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  add_to_children(t);
+  add_to_children(t, c_info);
   sema_init(&t->thread_info->sema, 0);
   t->thread_info->exited = false;
 
@@ -606,25 +614,28 @@ allocate_tid (void)
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
-void
-add_to_children(struct thread *child)
+struct thread_info *
+add_to_children(struct thread *child, struct thread_info *c_info)
 {
   struct thread *parent = thread_current();
-  struct thread_info *c_info = malloc(sizeof(struct thread_info));
   c_info->tid = child->tid;
   list_push_back (&parent->children, &c_info->elem);
   child->thread_info = c_info;
   c_info->state = DEFAULT;
-  return;
+  return c_info;
 }
 
 int
 add_to_files(struct thread *t, struct file *f)
 {
   struct thread_file *tf = malloc(sizeof(struct thread_file));
-  tf->file = f;
-  tf->fd = t->fd_count;
-  t->fd_count += 1;
-  list_push_back(&t->files, tf);
-  return tf->fd;
+  if (tf != NULL)
+    {
+      tf->file = f;
+      tf->fd = t->fd_count;
+      t->fd_count += 1;
+      list_push_back(&t->files, tf);
+      return tf->fd;
+    }
+  return -1;
 }
