@@ -115,7 +115,7 @@ struct thread
 
    // struct semaphore sema;
 
-   struct list locks;
+   // struct list locks;
 
    struct file* bin_file;
    struct list files;
@@ -132,6 +132,7 @@ struct thread_info
       bool orphaned;
       int exit_code;
       enum exit_state state;
+      struct semaphore load_sema;
    };
 
 /* This struct saves files which have been opened by the thread and is STILL open*/

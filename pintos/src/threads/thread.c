@@ -76,6 +76,7 @@ void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
 struct thread_info *add_to_children(struct thread *child, struct thread_info *c_info);
 int add_to_files(struct thread *t, struct file *f);
+struct thread_info *get_thread_info(struct thread *p, tid_t c_tid);
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
    general and it is possible in this case only because loader.S
@@ -196,6 +197,7 @@ thread_create (const char *name, int priority,
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
   add_to_children(t, c_info);
+  //WANRNING : refactor !!!
   sema_init(&t->thread_info->sema, 0);
   t->thread_info->exited = false;
 
@@ -620,6 +622,7 @@ add_to_children(struct thread *child, struct thread_info *c_info)
   struct thread *parent = thread_current();
   c_info->tid = child->tid;
   list_push_back (&parent->children, &c_info->elem);
+  sema_init(&c_info->load_sema, 0);
   child->thread_info = c_info;
   c_info->state = DEFAULT;
   return c_info;
@@ -638,4 +641,20 @@ add_to_files(struct thread *t, struct file *f)
       return tf->fd;
     }
   return -1;
+}
+
+struct thread_info *
+get_thread_info(struct thread *p, tid_t c_tid)
+{
+  struct list_elem *e;
+  for (e = list_begin (&p->children); e != list_end (&p->children);
+       e = list_next (e))
+    {
+      struct thread_info *ti =  list_entry (e, struct thread_info, elem);
+      if (c_tid == ti->tid)
+        {
+          return ti;
+        }
+    }
+  return NULL;
 }

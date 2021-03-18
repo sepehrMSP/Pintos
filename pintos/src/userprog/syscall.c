@@ -119,9 +119,28 @@ syscall_handler (struct intr_frame *f UNUSED)
           tid_t tid = process_execute(file_name);
           if (tid == TID_ERROR)
             {
-
+              f->eax = -1;
             }
-          f->eax = tid;
+          else
+            {
+              struct thread_info *ti = get_thread_info(thread_current(), tid);
+              if (ti == NULL)
+                {
+                  NOT_REACHED();
+                }
+              else
+                {
+                  sema_down(&ti->load_sema);
+                  if (ti->state == LOAD_FAILED)
+                    {
+                      f->eax = -1;
+                    }
+                  else
+                    {
+                      f->eax = tid;
+                    }
+                }
+            }
         }
       else
         {

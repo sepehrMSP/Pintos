@@ -74,6 +74,8 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
+  sema_up(&thread_current()->thread_info->load_sema);
+
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
@@ -125,6 +127,7 @@ process_wait (tid_t child_tid)
               sema_down(&t->sema);
             }
           list_remove(e);
+          // printf("parent tid: %d \tthread info tid: %d\n",parent->tid, t->tid);
           exit_code = t->exit_code;
           free(t);
           break;
@@ -267,15 +270,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
   tok_t argv[ARG_LIMIT];
   int argc = parse_arg(file_name, argv);
 
-
+  lock_acquire(&global_files_lock);
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL)
-    goto done;
+    {
+      t->thread_info->state = LOAD_FAILED;
+      goto done;
+    }
   process_activate ();
 
   /* Open executable file. */
-  lock_acquire(&global_files_lock);
   file = filesys_open (argv[0]);
   if (file == NULL)
     {
@@ -294,6 +299,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       || ehdr.e_phnum > 1024)
     {
       printf ("load: %s: error loading executable\n", file_name);
+      t->thread_info->state = LOAD_FAILED;
       goto done;
     }
 
@@ -304,11 +310,17 @@ load (const char *file_name, void (**eip) (void), void **esp)
       struct Elf32_Phdr phdr;
 
       if (file_ofs < 0 || file_ofs > file_length (file))
-        goto done;
+        {
+          t->thread_info->state = LOAD_FAILED;
+          goto done;
+        }
       file_seek (file, file_ofs);
 
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
-        goto done;
+        {
+          t->thread_info->state = LOAD_FAILED;
+          goto done;
+        }
       file_ofs += sizeof phdr;
       switch (phdr.p_type)
         {
@@ -322,7 +334,10 @@ load (const char *file_name, void (**eip) (void), void **esp)
         case PT_DYNAMIC:
         case PT_INTERP:
         case PT_SHLIB:
-          goto done;
+          {
+            t->thread_info->state = LOAD_FAILED;
+            goto done;
+          }
         case PT_LOAD:
           if (validate_segment (&phdr, file))
             {
@@ -348,17 +363,26 @@ load (const char *file_name, void (**eip) (void), void **esp)
                 }
               if (!load_segment (file, file_page, (void *) mem_page,
                                  read_bytes, zero_bytes, writable))
-                goto done;
+                {
+                  t->thread_info->state = LOAD_FAILED;
+                  goto done;
+                }
             }
           else
-            goto done;
+            {
+              t->thread_info->state = LOAD_FAILED;
+              goto done;
+            }
           break;
         }
     }
 
   /* Set up stack. */
   if (!setup_stack (esp))
-    goto done;
+    {
+      t->thread_info->state = LOAD_FAILED;
+      goto done;
+    }
 
   t->bin_file = filesys_open (argv[0]);
   file_deny_write (t->bin_file);
