@@ -35,13 +35,13 @@ static struct list all_list;
 /* Idle thread. */
 static struct thread *idle_thread;
 
-/* Initial thread, the thread running init.c:main(). */
+/* Initial thread, the thread running init.c:main (). */
 static struct thread *initial_thread;
 
-/* Lock used by allocate_tid(). */
+/* Lock used by allocate_tid (). */
 static struct lock tid_lock;
 
-/* Stack frame for kernel_thread(). */
+/* Stack frame for kernel_thread (). */
 struct kernel_thread_frame
   {
     void *eip;                  /* Return address. */
@@ -74,10 +74,10 @@ static void *alloc_frame (struct thread *, size_t size);
 static void schedule (void);
 void thread_schedule_tail (struct thread *prev);
 static tid_t allocate_tid (void);
-struct thread_info *add_to_children(struct thread *child, struct thread_info *c_info);
-int add_to_files(struct thread *t, struct file *f);
-struct thread_info *get_thread_info(struct thread *p, tid_t c_tid);
-void free_thread_files(struct thread *t);
+struct thread_info *add_to_children (struct thread *child, struct thread_info *c_info);
+int add_to_files (struct thread *t, struct file *f);
+struct thread_info *get_thread_info (struct thread *p, tid_t c_tid);
+void free_thread_files (struct thread *t);
 
 /* Initializes the threading system by transforming the code
    that's currently running into a thread.  This can't work in
@@ -88,9 +88,9 @@ void free_thread_files(struct thread *t);
 
    After calling this function, be sure to initialize the page
    allocator before trying to create any threads with
-   thread_create().
+   thread_create ().
 
-   It is not safe to call thread_current() until this function
+   It is not safe to call thread_current () until this function
    finishes. */
 void
 thread_init (void)
@@ -160,9 +160,9 @@ thread_print_stats (void)
    and adds it to the ready queue.  Returns the thread identifier
    for the new thread, or TID_ERROR if creation fails.
 
-   If thread_start() has been called, then the new thread may be
-   scheduled before thread_create() returns.  It could even exit
-   before thread_create() returns.  Contrariwise, the original
+   If thread_start () has been called, then the new thread may be
+   scheduled before thread_create () returns.  It could even exit
+   before thread_create () returns.  Contrariwise, the original
    thread may run for any amount of time before the new thread is
    scheduled.  Use a semaphore or some other form of
    synchronization if you need to ensure ordering.
@@ -183,7 +183,7 @@ thread_create (const char *name, int priority,
   ASSERT (function != NULL);
 
   /* Allocate thread. */
-  struct thread_info *c_info = malloc(sizeof(struct thread_info));
+  struct thread_info *c_info = malloc (sizeof (struct thread_info));
   if (c_info == NULL)
     {
       return TID_ERROR;
@@ -191,29 +191,26 @@ thread_create (const char *name, int priority,
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     {
-      free(c_info);
+      free (c_info);
       return TID_ERROR;
     }
 
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
-  add_to_children(t, c_info);
-  //WANRNING : refactor !!!
-  sema_init(&t->thread_info->sema, 0);
-  t->thread_info->exited = false;
+  add_to_children (t, c_info);
 
-  /* Stack frame for kernel_thread(). */
+  /* Stack frame for kernel_thread (). */
   kf = alloc_frame (t, sizeof *kf);
   kf->eip = NULL;
   kf->function = function;
   kf->aux = aux;
 
-  /* Stack frame for switch_entry(). */
+  /* Stack frame for switch_entry (). */
   ef = alloc_frame (t, sizeof *ef);
   ef->eip = (void (*) (void)) kernel_thread;
 
-  /* Stack frame for switch_threads(). */
+  /* Stack frame for switch_threads (). */
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
   sf->ebp = 0;
@@ -225,7 +222,7 @@ thread_create (const char *name, int priority,
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
-   again until awoken by thread_unblock().
+   again until awoken by thread_unblock ().
 
    This function must be called with interrupts turned off.  It
    is usually a better idea to use one of the synchronization
@@ -241,7 +238,7 @@ thread_block (void)
 }
 
 /* Transitions a blocked thread T to the ready-to-run state.
-   This is an error if T is not blocked.  (Use thread_yield() to
+   This is an error if T is not blocked.  (Use thread_yield () to
    make the running thread ready.)
 
    This function does not preempt the running thread.  This can
@@ -270,7 +267,7 @@ thread_name (void)
 }
 
 /* Returns the running thread.
-   This is running_thread() plus a couple of sanity checks.
+   This is running_thread () plus a couple of sanity checks.
    See the big comment at the top of thread.h for details. */
 struct thread *
 thread_current (void)
@@ -308,16 +305,16 @@ thread_exit (void)
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
-     when it calls thread_schedule_tail(). */
-  lock_acquire(&global_files_lock);
+     when it calls thread_schedule_tail (). */
+  lock_acquire (&global_files_lock);
   intr_disable ();
   if (thread_current ()->bin_file != NULL)
     {
       file_allow_write (thread_current ()->bin_file);
       file_close (thread_current ()->bin_file);
     }
-  free_thread_files(thread_current());
-  lock_release(&global_files_lock);
+  free_thread_files (thread_current ());
+  lock_release (&global_files_lock);
   list_remove (&thread_current ()->allelem);
   sema_up (&thread_current ()->thread_info->sema);
   thread_current ()->thread_info->exited = true;
@@ -409,11 +406,11 @@ thread_get_recent_cpu (void)
 /* Idle thread.  Executes when no other thread is ready to run.
 
    The idle thread is initially put on the ready list by
-   thread_start().  It will be scheduled once initially, at which
+   thread_start ().  It will be scheduled once initially, at which
    point it initializes idle_thread, "up"s the semaphore passed
-   to it to enable thread_start() to continue, and immediately
+   to it to enable thread_start () to continue, and immediately
    blocks.  After that, the idle thread never appears in the
-   ready list.  It is returned by next_thread_to_run() as a
+   ready list.  It is returned by next_thread_to_run () as a
    special case when the ready list is empty. */
 static void
 idle (void *idle_started_ UNUSED)
@@ -452,7 +449,7 @@ kernel_thread (thread_func *function, void *aux)
 
   intr_enable ();       /* The scheduler runs with interrupts off. */
   function (aux);       /* Execute the thread function. */
-  thread_exit ();       /* If function() returns, kill the thread. */
+  thread_exit ();       /* If function () returns, kill the thread. */
 }
 
 /* Returns the running thread. */
@@ -489,8 +486,8 @@ init_thread (struct thread *t, const char *name, int priority)
 
   memset (t, 0, sizeof *t);
 
-  list_init(&t->children);
-  list_init(&t->files);
+  list_init (&t->children);
+  list_init (&t->files);
 
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
@@ -537,12 +534,12 @@ next_thread_to_run (void)
    At this function's invocation, we just switched from thread
    PREV, the new thread is already running, and interrupts are
    still disabled.  This function is normally invoked by
-   thread_schedule() as its final action before returning, but
+   thread_schedule () as its final action before returning, but
    the first time a thread is scheduled it is called by
-   switch_entry() (see switch.S).
+   switch_entry () (see switch.S).
 
-   It's not safe to call printf() until the thread switch is
-   complete.  In practice that means that printf()s should be
+   It's not safe to call printf () until the thread switch is
+   complete.  In practice that means that printf ()s should be
    added at the end of the function.
 
    After this function and its caller returns, the thread switch
@@ -566,10 +563,10 @@ thread_schedule_tail (struct thread *prev)
 #endif
 
   /* If the thread we switched from is dying, destroy its struct
-     thread.  This must happen late so that thread_exit() doesn't
+     thread.  This must happen late so that thread_exit () doesn't
      pull out the rug under itself.  (We don't free
      initial_thread because its memory was not obtained via
-     palloc().) */
+     palloc ().) */
   if (prev != NULL && prev->status == THREAD_DYING && prev != initial_thread)
     {
       ASSERT (prev != cur);
@@ -619,34 +616,36 @@ allocate_tid (void)
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
 
 struct thread_info *
-add_to_children(struct thread *child, struct thread_info *c_info)
+add_to_children (struct thread *child, struct thread_info *c_info)
 {
-  struct thread *parent = thread_current();
+  struct thread *parent = thread_current ();
   c_info->tid = child->tid;
   list_push_back (&parent->children, &c_info->elem);
-  sema_init(&c_info->load_sema, 0);
+  sema_init (&c_info->load_sema, 0);
   child->thread_info = c_info;
   c_info->state = DEFAULT;
+  sema_init (&child->thread_info->sema, 0);
+  child->thread_info->exited = false;
   return c_info;
 }
 
 int
-add_to_files(struct thread *t, struct file *f)
+add_to_files (struct thread *t, struct file *f)
 {
-  struct thread_file *tf = malloc(sizeof(struct thread_file));
+  struct thread_file *tf = malloc (sizeof (struct thread_file));
   if (tf != NULL)
     {
       tf->file = f;
       tf->fd = t->fd_count;
       t->fd_count += 1;
-      list_push_back(&t->files, tf);
+      list_push_back (&t->files, tf);
       return tf->fd;
     }
   return -1;
 }
 
 struct thread_info *
-get_thread_info(struct thread *p, tid_t c_tid)
+get_thread_info (struct thread *p, tid_t c_tid)
 {
   struct list_elem *e;
   for (e = list_begin (&p->children); e != list_end (&p->children);
@@ -662,14 +661,14 @@ get_thread_info(struct thread *p, tid_t c_tid)
 }
 
 void
-free_thread_files(struct thread *t)
+free_thread_files (struct thread *t)
 {
   struct list_elem *e;
-  while(!list_empty(&t->files))
+  while (!list_empty (&t->files))
     {
-      e = list_pop_front(&t->files);
-      struct thread_file *tf = list_entry(e, struct thread_file, elem);
-      file_close(tf->file);
-      free(tf);
+      e = list_pop_front (&t->files);
+      struct thread_file *tf = list_entry (e, struct thread_file, elem);
+      file_close (tf->file);
+      free (tf);
     }
 }

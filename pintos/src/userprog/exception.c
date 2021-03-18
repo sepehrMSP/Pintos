@@ -89,10 +89,10 @@ kill (struct intr_frame *f)
       printf ("%s: dying due to interrupt %#04x (%s).\n",
               thread_name (), f->vec_no, intr_name (f->vec_no));
       intr_dump_frame (f);
-      
+
       f->eax = -1;
-      printf ("%s: exit(%d)\n", &thread_current()->name, -1);
-      struct thread *t = thread_current();
+      printf ("%s: exit(%d)\n", &thread_current ()->name, -1);
+      struct thread *t = thread_current ();
       t->thread_info->exit_code = -1;
 
       thread_exit ();

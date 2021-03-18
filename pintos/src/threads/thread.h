@@ -131,7 +131,7 @@ struct thread_info
    };
 
 /* This struct saves files which have been opened by the thread and is STILL open*/
-struct thread_file 
+struct thread_file
    {
 
       struct list_elem elem;
@@ -175,7 +175,7 @@ void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
-// our functions
-int add_to_files(struct thread *t, struct file *f);
+// Our functions
+int add_to_files (struct thread *t, struct file *f);
 
 #endif /* threads/thread.h */

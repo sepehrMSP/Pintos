@@ -24,14 +24,14 @@
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-int parse_arg(const char *file_name, tok_t *argv);
-int push_args(int argc, tok_t *argv, void **esp);
+int parse_arg (const char *file_name, tok_t *argv);
+int push_args (int argc, tok_t *argv, void **esp);
 
 extern struct lock global_files_lock;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
-   before process_execute() returns.  Returns the new process's
+   before process_execute () returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
 process_execute (const char *file_name)
@@ -41,7 +41,7 @@ process_execute (const char *file_name)
   tid_t tid;
 
   /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
+     Otherwise there's a race between the caller and load (). */
   fn_copy = palloc_get_page (0);
   if (fn_copy == NULL)
     return TID_ERROR;
@@ -53,7 +53,7 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
-  // free(name);
+  // WARNING! Thread 'name' is not freed
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   return tid;
@@ -74,17 +74,15 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (file_name, &if_.eip, &if_.esp);
-  sema_up(&thread_current()->thread_info->load_sema);
+  sema_up (&thread_current ()->thread_info->load_sema);
 
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success)
     {
-      printf ("%s: exit(%d)\n", &thread_current()->name, -1);
-      struct thread *t = thread_current();
+      struct thread *t = thread_current ();
       t->thread_info->exit_code = -1;
-      thread_exit ();
     }
 
   /* Start the user process by simulating a return from an
@@ -100,7 +98,7 @@ start_process (void *file_name_)
 /* Waits for thread TID to die and returns its exit status.  If
    it was terminated by the kernel (i.e. killed due to an
    exception), returns -1.  If TID is invalid or if it was not a
-   child of the calling process, or if process_wait() has already
+   child of the calling process, or if process_wait () has already
    been successfully called for the given TID, returns -1
    immediately, without waiting.
 
@@ -110,7 +108,7 @@ int
 process_wait (tid_t child_tid)
 {
   int exit_code;
-  struct thread *parent = thread_current();
+  struct thread *parent = thread_current ();
   bool is_child = false;
   struct list_elem *e;
   struct thread_info *t;
@@ -124,12 +122,11 @@ process_wait (tid_t child_tid)
           bool exited = t->exited;
           if (!exited)
             {
-              sema_down(&t->sema);
+              sema_down (&t->sema);
             }
-          list_remove(e);
-          // printf("parent tid: %d \tthread info tid: %d\n",parent->tid, t->tid);
+          list_remove (e);
           exit_code = t->exit_code;
-          free(t);
+          free (t);
           break;
         }
     }
@@ -192,7 +189,7 @@ process_activate (void)
 typedef uint32_t Elf32_Word, Elf32_Addr, Elf32_Off;
 typedef uint16_t Elf32_Half;
 
-/* For use with ELF types in printf(). */
+/* For use with ELF types in printf (). */
 #define PE32Wx PRIx32   /* Print Elf32_Word in hexadecimal. */
 #define PE32Ax PRIx32   /* Print Elf32_Addr in hexadecimal. */
 #define PE32Ox PRIx32   /* Print Elf32_Off in hexadecimal. */
@@ -268,9 +265,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
   tok_t argv[ARG_LIMIT];
-  int argc = parse_arg(file_name, argv);
+  int argc = parse_arg (file_name, argv);
 
-  lock_acquire(&global_files_lock);
+  lock_acquire (&global_files_lock);
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL)
@@ -387,7 +384,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   t->bin_file = filesys_open (argv[0]);
   file_deny_write (t->bin_file);
 
-  push_args(argc, argv, esp);
+  push_args (argc, argv, esp);
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
 
@@ -396,11 +393,11 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
-  lock_release(&global_files_lock);
+  lock_release (&global_files_lock);
   return success;
 }
 
-/* load() helpers. */
+/* load () helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
 
@@ -441,7 +438,7 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
      Not only is it a bad idea to map page 0, but if we allowed
      it then user code that passed a null pointer to system calls
      could quite likely panic the kernel by way of null pointer
-     assertions in memcpy(), etc. */
+     assertions in memcpy (), etc. */
   if (phdr->p_vaddr < PGSIZE)
     return false;
 
@@ -534,7 +531,7 @@ setup_stack (void **esp)
    otherwise, it is read-only.
    UPAGE must not already be mapped.
    KPAGE should probably be a page obtained from the user pool
-   with palloc_get_page().
+   with palloc_get_page ().
    Returns true on success, false if UPAGE is already mapped or
    if memory allocation fails. */
 static bool
@@ -550,42 +547,42 @@ install_page (void *upage, void *kpage, bool writable)
 
 /* Gets filename and returns argc and set argv*/
 int
-parse_arg(const char *file_name, tok_t *argv)
+parse_arg (const char *file_name, tok_t *argv)
 {
   size_t arg_counter = 0;
   char *rest;
-  char *tok = strtok_r(file_name, " ", &rest);
+  char *tok = strtok_r (file_name, " ", &rest);
 
   while (tok != NULL)
     {
       argv[arg_counter] = tok;
       arg_counter++;
-      if(arg_counter == ARG_LIMIT)
+      if (arg_counter == ARG_LIMIT)
         {
-          ASSERT(0);
+          ASSERT (0);
           break;
         }
-      tok = strtok_r(NULL, " ", &rest);
+      tok = strtok_r (NULL, " ", &rest);
     }
   argv[arg_counter] = NULL;
   return arg_counter;
 }
 
 int
-push_args(int argc, tok_t *argv, void **esp)
+push_args (int argc, tok_t *argv, void **esp)
 {
   char *ptrs[ARG_LIMIT];
   for (int i = 0; i < argc; i++)
     {
-      int len = strlen(argv[i]) + 1;
+      int len = strlen (argv[i]) + 1;
       *esp -= len;
-      strlcpy(*esp, argv[i], len);
+      strlcpy (*esp, argv[i], len);
       ptrs[i] = *esp;
     }
 
   ptrs[argc] = NULL;
 
-  //align the stack to be 16-byte boundry at the moment of call
+  // Align the stack to be 16-byte boundry at the moment of call
   *esp -= (uint32_t) (*esp - (4*argc + 12)) % 16;
   for (int i = argc; i >= 0; i--)
     {
@@ -597,7 +594,7 @@ push_args(int argc, tok_t *argv, void **esp)
   ** (int **) esp = *esp + 4;
   *esp -= 4;
   ** (int **) esp = argc;
-  // push dummy address
+  // Push dummy address
   *esp -= 4;
 
   return 1;
