@@ -27,6 +27,7 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int parse_arg(const char *file_name, tok_t *argv);
 int push_args(int argc, tok_t *argv, void **esp);
 
+extern struct lock global_files_lock;
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -52,7 +53,7 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (name, PRI_DEFAULT, start_process, fn_copy);
-  free(name);
+  // free(name);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy);
   return tid;
@@ -117,10 +118,10 @@ process_wait (tid_t child_tid)
           if (!exited)
             {
               sema_down(&t->sema);
-              list_remove(e);
-              exit_code = t->exit_code;
-              free(t);
             }
+          list_remove(e);
+          exit_code = t->exit_code;
+          free(t);
           break;
         }
     }
@@ -269,6 +270,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  lock_acquire(&global_files_lock);
   file = filesys_open (argv[0]);
   if (file == NULL)
     {
@@ -363,6 +365,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
+  lock_release(&global_files_lock);
   return success;
 }
 

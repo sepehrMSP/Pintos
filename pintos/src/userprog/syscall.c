@@ -16,7 +16,7 @@ static bool is_valid_byte_addr (void *);
 static bool is_valid_addr (void *, size_t);
 static bool is_valid_str (char *);
 struct thread_file *get_thread_file (int);
-static struct lock global_files_lock;
+struct lock global_files_lock;
 
 void
 syscall_init (void)
@@ -71,7 +71,6 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       else
         {
-
           void *buffer = args[2];
           off_t size = args[3];
 
@@ -102,26 +101,31 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       char *file_name = args[1];
       struct file *file = NULL;
+      bool file_exists;
 
       size_t name_len = strcspn (file_name, " ") + 1;
       char *name = malloc (name_len * sizeof (char));
       strlcpy (name, file_name, name_len);
 
+      lock_acquire(&global_files_lock);
       file = filesys_open (name);
       free(name);
-      if (file == NULL)
+      file_exists = (file != NULL);
+      file_close (file);
+      lock_release(&global_files_lock);
+
+      if (file_exists)
         {
-          f->eax = -1;
-        }
-      else
-        {
-          file_close (file);
           tid_t tid = process_execute(file_name);
           if (tid == TID_ERROR)
             {
 
             }
           f->eax = tid;
+        }
+      else
+        {
+          f->eax = -1;
         }
     }
   else if (args[0] == SYS_WAIT)
