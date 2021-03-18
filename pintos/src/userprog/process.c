@@ -78,7 +78,12 @@ start_process (void *file_name_)
   /* If load failed, quit. */
   palloc_free_page (file_name);
   if (!success)
-    thread_exit ();
+    {
+      printf ("%s: exit(%d)\n", &thread_current()->name, -1);
+      struct thread *t = thread_current();
+      t->thread_info->exit_code = -1;
+      thread_exit ();
+    }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
