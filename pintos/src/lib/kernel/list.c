@@ -1,5 +1,7 @@
 #include "list.h"
 #include "../debug.h"
+#include "../threads/thread.h"
+#include "../threads/synch.h"
 
 /* Our doubly linked lists have two header elements: the "head"
    just before the first element and the "tail" just after the
@@ -485,6 +487,46 @@ list_unique (struct list *list, struct list *duplicates,
       elem = next;
 }
 
+bool compare_thread_priority_waiters (const struct list_elem* e1, const struct list_elem* e2, void* aux) {
+  struct thread* t1 = list_entry(e1, struct thread, lock_elem);
+  struct thread* t2 = list_entry(e2, struct thread, lock_elem);
+
+  if (t1->effective_priority < t2->effective_priority) {
+    return true;
+  }
+  return false;
+}
+
+bool compare_thread_effective_priority_ready_list (const struct list_elem* e1, const struct list_elem* e2, void* aux) {
+  struct thread* t1 = list_entry(e1, struct thread, elem);
+  struct thread* t2 = list_entry(e2, struct thread, elem);
+
+  if (t1->effective_priority < t2->effective_priority) {
+    return true;
+  }
+  return false;
+}
+
+bool compare_thread_effective_priority_sema_waiters (const struct list_elem* e1, const struct list_elem* e2, void* aux) {
+  struct thread* t1 = list_entry(e1, struct thread, sema_elem);
+  struct thread* t2 = list_entry(e2, struct thread, sema_elem);
+
+  if (t1->effective_priority < t2->effective_priority) {
+    return true;
+  }
+  return false;
+}
+
+bool compare_lock_priority_owned_locks (const struct list_elem* e1, const struct list_elem* e2, void* aux) {
+  struct lock* l1 = list_entry(e1, struct lock, elem);
+  struct lock* l2 = list_entry(e2, struct lock, elem);
+
+  if (l1->priority < l2->priority) {
+    return true;
+  }
+  return false;
+}
+
 /* Returns the element in LIST with the largest value according
    to LESS given auxiliary data AUX.  If there is more than one
    maximum, returns the one that appears earlier in the list.  If
@@ -497,13 +539,51 @@ list_max (struct list *list, list_less_func *less, void *aux)
     {
       struct list_elem *e;
 
-      for (e = list_next (max); e != list_end (list); e = list_next (e))
+      for (e = list_next (max); e != list_end (list); e = list_next (e)) {
         if (less (max, e, aux))
           max = e;
+      }
     }
   return max;
 }
 
+int waiters_max_priority (struct list* list) {
+  if (list == NULL || list_empty(list)) {
+    return -1;
+  }
+  struct list_elem* e = list_max(list, compare_thread_priority_waiters, NULL);
+  if (e == NULL) {
+    return -1;
+  }
+  struct thread* t = list_entry(e, struct thread, lock_elem);
+  return t->effective_priority;
+}
+
+int owned_locks_max_priority (struct list* list) {
+  ASSERT(list != NULL);
+  if (list_empty(list)) {
+    return -1;
+  }
+  struct list_elem* e = list_max(list, compare_lock_priority_owned_locks, NULL);
+  if (e == NULL) {
+    return -1;
+  }
+  struct lock* l =  list_entry(e, struct lock, elem);
+  return l->priority;
+}
+
+struct thread* sema_waiters_max_thread_effective_priority(struct list* list) {
+  ASSERT(list != NULL);
+  if (list_empty(list)) {
+    return NULL;
+  }
+  struct list_elem* e = list_max(list, compare_thread_effective_priority_sema_waiters, NULL);
+  if (e == NULL) {
+    return NULL;
+  }
+  struct thread* t = list_entry(e, struct thread, sema_elem);
+  return t;
+}
 /* Returns the element in LIST with the smallest value according
    to LESS given auxiliary data AUX.  If there is more than one
    minimum, returns the one that appears earlier in the list.  If

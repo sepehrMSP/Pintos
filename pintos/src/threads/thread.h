@@ -94,6 +94,9 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+    /* OUR CHANGE */
+    struct list_elem sema_elem;
+    /* ********** */
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
@@ -102,6 +105,13 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    /* OUR CHANGES */
+   int effective_priority;
+   struct list owned_locks;
+   struct lock* waited_lock;
+   struct list_elem lock_elem;
+
   };
 
 /* If false (default), use round-robin scheduler.

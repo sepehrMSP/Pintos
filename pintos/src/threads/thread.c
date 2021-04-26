@@ -19,6 +19,7 @@
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
 #define THREAD_MAGIC 0xcd6abf4b
+#define MAX(A,B) ((A)>(B) ? (A):(B))
 
 /* List of processes in THREAD_READY state, that is, processes
    that are ready to run but not actually running. */
@@ -200,7 +201,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
-
+  thread_yield();
   return tid;
 }
 
@@ -335,14 +336,40 @@ thread_foreach (thread_action_func *func, void *aux)
 void
 thread_set_priority (int new_priority)
 {
-  thread_current ()->priority = new_priority;
+  enum intr_level old_level = intr_disable();
+  struct thread* t = thread_current ();
+  int old_priority = t->priority;
+  t->priority = new_priority;
+  t->effective_priority = new_priority;
+  int max_pr = -1;
+  struct list_elem* e;
+  if (!list_empty(&t->owned_locks)) {
+    for (e = list_begin (&t->owned_locks); e != list_end (&t->owned_locks);
+            e = list_next (e))
+          {
+            struct lock *l = list_entry (e, struct lock, elem);
+            max_pr = MAX(max_pr, waiters_max_priority(&l->waiters));
+          }
+  }
+  else {
+    max_pr = -1;
+  }
+  t->effective_priority = MAX(max_pr, new_priority);
+  struct thread* cur = t;
+  while(cur !=  NULL && cur->waited_lock != NULL) {
+    cur->waited_lock->priority = waiters_max_priority(&cur->waited_lock->waiters);
+    cur = cur->waited_lock->holder;
+  }
+  intr_set_level(old_level);
+  thread_yield();
 }
 
 /* Returns the current thread's priority. */
 int
 thread_get_priority (void)
 {
-  return thread_current ()->priority;
+  // return thread_current ()->priority;
+  return thread_current ()->effective_priority;
 }
 
 /* Sets the current thread's nice value to NICE. */
@@ -463,6 +490,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  list_init(&t->owned_locks);
+  t->waited_lock = NULL;
+  t->effective_priority = priority;
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -492,8 +522,14 @@ next_thread_to_run (void)
 {
   if (list_empty (&ready_list))
     return idle_thread;
-  else
-    return list_entry (list_pop_front (&ready_list), struct thread, elem);
+  else {
+    // // return list_entry (list_pop_front (&ready_list), struct thread, elem);
+    struct list_elem* e = list_max(&ready_list, compare_thread_effective_priority_ready_list, NULL);
+    struct thread* res = list_entry(e, struct thread, elem);
+    /* WARNING */
+    list_remove(e);
+    return res;
+  }
 }
 
 /* Completes a thread switch by activating the new thread's page
