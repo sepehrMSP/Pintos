@@ -131,6 +131,7 @@ sema_up (struct semaphore *sema)
   }
   sema->value++;
   intr_set_level (old_level);
+  thread_yield ();
 }
 
 static void sema_test_helper (void *sema_);
@@ -293,8 +294,8 @@ lock_release (struct lock *lock)
   list_remove(&lock->elem);
   struct thread* cur = thread_current ();
   cur->effective_priority = MAX(cur->priority, owned_locks_max_priority(&cur->owned_locks));
-  sema_up (&lock->semaphore);
   intr_set_level(old_level);
+  sema_up (&lock->semaphore);
   thread_yield();
 }
 

@@ -1,4 +1,5 @@
 #include "tests/threads/tests.h"
+#include "threads/interrupt.h"
 #include <debug.h>
 #include <string.h>
 #include <stdio.h>
