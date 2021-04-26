@@ -378,8 +378,9 @@ cond_signal (struct condition *cond, struct lock *lock UNUSED)
   //                         struct semaphore_elem, elem)->semaphore);
 
   if (!list_empty(&cond->waiters)) {
-    struct semaphore* s = cond_waiters_max_priority(&cond->waiters);
-    sema_up(s);
+    struct semaphore_elem* se = cond_waiters_max_priority(&cond->waiters);
+    list_remove(&se->elem);
+    sema_up(&se->semaphore);
   }
 }
 

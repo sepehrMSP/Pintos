@@ -597,7 +597,7 @@ struct thread* sema_waiters_max_thread_effective_priority(struct list* list) {
   return t;
 }
 
-struct semaphore* cond_waiters_max_priority(struct list* list){
+struct semaphore_elem* cond_waiters_max_priority(struct list* list){
   ASSERT(list != NULL);
 
   if (list_empty(list)) {
@@ -608,9 +608,8 @@ struct semaphore* cond_waiters_max_priority(struct list* list){
   if (e == NULL) {
     return NULL;
   }
-
-  struct semaphore_elem* s = list_entry(e, struct semaphore_elem, elem);
-  return &s->semaphore;
+  struct semaphore_elem* se = list_entry(e, struct semaphore_elem, elem);
+  return se;
 }
 
 /* Returns the element in LIST with the smallest value according
