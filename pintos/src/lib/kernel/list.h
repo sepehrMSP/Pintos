@@ -183,5 +183,5 @@ int owned_locks_max_priority (struct list* list);
 bool compare_thread_effective_priority_ready_list (const struct list_elem* e1, const struct list_elem* e2, void* aux);
 bool compare_thread_effective_priority_sema_waiters (const struct list_elem* e1, const struct list_elem* e2, void* aux);
 struct thread* sema_waiters_max_thread_effective_priority(struct list* list);
-
+struct semaphore* cond_waiters_max_priority(struct list* list);
 #endif /* lib/kernel/list.h */

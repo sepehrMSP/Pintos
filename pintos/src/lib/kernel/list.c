@@ -527,6 +527,18 @@ bool compare_lock_priority_owned_locks (const struct list_elem* e1, const struct
   return false;
 }
 
+bool compare_sema_priority (const struct list_elem* e1, const struct list_elem* e2, void* aux) {
+  struct semaphore_elem* s1 = list_entry(e1, struct semaphore_elem, elem);
+  struct semaphore_elem* s2 = list_entry(e2, struct semaphore_elem, elem);
+
+  struct thread* t1 = sema_waiters_max_thread_effective_priority(&s1->semaphore.waiters);
+  struct thread* t2 = sema_waiters_max_thread_effective_priority(&s2->semaphore.waiters);
+
+  if (t1->effective_priority < t2->effective_priority) {
+    return true;
+  }
+  return false;
+}
 /* Returns the element in LIST with the largest value according
    to LESS given auxiliary data AUX.  If there is more than one
    maximum, returns the one that appears earlier in the list.  If
@@ -584,6 +596,23 @@ struct thread* sema_waiters_max_thread_effective_priority(struct list* list) {
   struct thread* t = list_entry(e, struct thread, sema_elem);
   return t;
 }
+
+struct semaphore* cond_waiters_max_priority(struct list* list){
+  ASSERT(list != NULL);
+
+  if (list_empty(list)) {
+    return NULL;
+  }
+
+  struct list_elem* e = list_max(list, compare_sema_priority, NULL);
+  if (e == NULL) {
+    return NULL;
+  }
+
+  struct semaphore_elem* s = list_entry(e, struct semaphore_elem, elem);
+  return &s->semaphore;
+}
+
 /* Returns the element in LIST with the smallest value according
    to LESS given auxiliary data AUX.  If there is more than one
    minimum, returns the one that appears earlier in the list.  If
