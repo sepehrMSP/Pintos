@@ -4,6 +4,8 @@
 #include "threads/synch.h"
 #include "threads/malloc.h"
 
+#ifdef ENABLE_CACHE
+
 struct list cache_list;
 
 // struct hash cache_hash;
@@ -27,7 +29,7 @@ struct cache_block
 // struct cache_block cache;
 
 void
-cache_init ()
+cache_init (void)
 {
   list_init(&cache_list);
   for (int i = 0; i < CACHE_SIZE; i++)
@@ -92,3 +94,25 @@ cache_write (struct block *block, block_sector_t sector, const void *buffer)
       }
   }
 }
+
+#else
+
+void
+cache_init (void)
+{
+  return;
+}
+
+void
+cache_read (struct block *block, block_sector_t sector, void *buffer)
+{
+  block_read(block, sector, buffer);
+}
+
+void
+cache_write (struct block *block, block_sector_t sector, const void *buffer)
+{
+  block_write(block, sector, buffer);
+}
+
+#endif
