@@ -6,6 +6,8 @@
 
 #ifdef ENABLE_CACHE
 
+struct block *fs_device = NULL;
+
 struct list cache_list;
 
 // struct hash cache_hash;
@@ -26,8 +28,6 @@ struct cache_block
     int access_count;
   };
 
-// struct cache_block cache;
-
 void
 cache_init (void)
 {
@@ -43,9 +43,23 @@ cache_init (void)
     }
 }
 
+static void
+cache_out (struct cache_block *cache_block)
+{
+  ASSERT (fs_device != NULL);
+  if (cache_block->dirty)
+    block_write(fs_device, cache_block->sector, cache_block->data);
+  cache_block->sector = -1;
+  // TODO: remove from hash
+}
+
 void
 cache_read (struct block *block, block_sector_t sector, void *buffer)
 {
+  if (!fs_device)
+    fs_device = block;
+  ASSERT (fs_device == block);
+
   struct list_elem *e;
   struct cache_block *cache_block;
 
@@ -54,45 +68,55 @@ cache_read (struct block *block, block_sector_t sector, void *buffer)
     {
       cache_block = list_entry (e, struct cache_block, list_elem);
       if (cache_block->sector == sector)
-        {
-          list_remove(e);
-          list_push_front(&cache_list, e);
-          break;
-        }
+        break;
     }
 
   if (e == list_end (&cache_list))
     {
       e = list_prev (e);
       cache_block = list_entry (e, struct cache_block, list_elem);
+      cache_out(cache_block);
       block_read(block, sector, cache_block->data);
       cache_block->sector = sector;
-      // TODO: check access count somewhere
-      
-      list_remove(e);
-      list_push_front(&cache_list, e);
+      // TODO: check access count somewhere  
     }
+
+  list_remove(e);
+  list_push_front(&cache_list, e);
   memcpy(buffer, cache_block->data, BLOCK_SECTOR_SIZE);
 }
 
 void
 cache_write (struct block *block, block_sector_t sector, const void *buffer)
 {
-  block_write(block, sector, buffer);
+  if (!fs_device)
+    fs_device = block;
+  ASSERT (fs_device == block);
 
   struct list_elem *e;
   struct cache_block *cache_block;
 
   for (e = list_begin (&cache_list); e != list_end (&cache_list);
-    e = list_next (e))
-  {
-    cache_block = list_entry (e, struct cache_block, list_elem);
-    if (cache_block->sector == sector)
-      {
-        cache_block->sector = -1;
+       e = list_next (e))
+    {
+      cache_block = list_entry (e, struct cache_block, list_elem);
+      if (cache_block->sector == sector)
         break;
-      }
-  }
+    }
+
+  if (e == list_end (&cache_list))
+    {
+      e = list_prev (e);
+      cache_block = list_entry (e, struct cache_block, list_elem);
+      cache_out(cache_block);
+      block_read(block, sector, cache_block->data);
+      cache_block->sector = sector;
+      // TODO: check access count somewhere  
+    }
+  list_remove(e);
+  list_push_front(&cache_list, e);
+  memcpy(cache_block->data, buffer, BLOCK_SECTOR_SIZE);
+  cache_block->dirty = true;
 }
 
 #else
