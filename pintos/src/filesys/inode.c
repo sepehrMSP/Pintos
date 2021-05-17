@@ -11,8 +11,12 @@
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
+#ifndef UNIXFFS
+  // #define UNIXFFS
+#endif
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
+#ifndef UNIXFFS
 struct inode_disk
   {
     block_sector_t start;               /* First data sector. */
@@ -20,6 +24,28 @@ struct inode_disk
     unsigned magic;                     /* Magic number. */
     uint32_t unused[125];               /* Not used. */
   };
+#else
+  #define DIRECT_REGION_BOUND 124
+  #define INDIRECT1_REGION_BOUND 252
+  #define INDIRECT2_REGION_BOUND 16636
+
+  struct inode_disk
+    {
+      off_t length;
+      unsigned magic;
+      block_sector_t direct[124];
+      block_sector_t indirect;
+      block_sector_t doubly_indirect;
+    }
+#endif
+/**
+inode changes:
+
+->data
+->sector
+**/
+
+
 
 /* Returns the number of sectors to allocate for an inode SIZE
    bytes long. */
@@ -37,7 +63,11 @@ struct inode
     int open_cnt;                       /* Number of openers. */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    struct inode_disk data;             /* Inode content. */
+    #ifndef UNIXFFS
+      struct inode_disk data;             /* Inode content. */
+    #else
+      struct inode_disk *data;
+    #endif
   };
 
 /* Returns the block device sector that contains byte offset POS
@@ -48,10 +78,43 @@ static block_sector_t
 byte_to_sector (const struct inode *inode, off_t pos)
 {
   ASSERT (inode != NULL);
-  if (pos < inode->data.length)
-    return inode->data.start + pos / BLOCK_SECTOR_SIZE;
-  else
-    return -1;
+  #ifndef UNIXFFS
+    if (pos < inode->data.length)
+      return inode->data.start + pos / BLOCK_SECTOR_SIZE;
+    else
+      return -1;
+  #else
+    if (pos < inode->data->length)
+      {
+        size_t sector_num = pos / BLOCK_SECTOR_SIZE;
+        if (sector_num < DIRECT_REGION_BOUND) 
+          {
+            return inode->data->direct[sector_num];
+          }
+        else if (sector_num < INDIRECT1_REGION_BOUND) 
+          {
+            sector_num -= DIRECT_REGION_BOUND;
+            block_sector_t layer1 = inode->data->indirect;
+            block_sector_t buffer[BLOCK_SECTOR_SIZE_int];
+            cache_read (fs_device, layer1, (void *)buffer);
+            return buffer[sector_num];
+          }
+        else if (sector_num < INDIRECT2_REGION_BOUND) 
+          {
+            sector_num = sector_num - INDIRECT1_REGION_BOUND;
+            block_sector_t layer1 = inode->data->doubly_indirect;
+            block_sector_t buffer[BLOCK_SECTOR_SIZE_int];
+            cache_read(fs_device, layer1, (void *)buffer);
+            block_sector_t layer2 = buffer[sector_num / 128];
+            cache_read(fs_device, layer2, buffer);
+            return buffer[sector_num % 128];
+          }
+      }
+    else
+      {
+        return -1;
+      }   
+  #endif
 }
 
 /* List of open inodes, so that opening a single inode twice
@@ -89,19 +152,43 @@ inode_create (block_sector_t sector, off_t length)
       size_t sectors = bytes_to_sectors (length);
       disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
-      if (free_map_allocate (sectors, &disk_inode->start))
-        {
-          cache_write (fs_device, sector, disk_inode);
-          if (sectors > 0)
-            {
-              static char zeros[BLOCK_SECTOR_SIZE];
-              size_t i;
+      #ifndef UNIXFFS
+        if (free_map_allocate (sectors, &disk_inode->start))
+          {
+            cache_write (fs_device, sector, disk_inode);
+            if (sectors > 0)
+              {
+                static char zeros[BLOCK_SECTOR_SIZE];
+                size_t i;
 
-              for (i = 0; i < sectors; i++)
-                cache_write (fs_device, disk_inode->start + i, zeros);
-            }
-          success = true;
-        }
+                for (i = 0; i < sectors; i++)
+                  cache_write (fs_device, disk_inode->start + i, zeros);
+              }
+            success = true;
+          }
+      #else
+        int i = 0;
+        bool enough_free = true;
+        for (; i < DIRECT_REGION_BOUND && i < sectors; i++) 
+          {
+
+          }
+
+        for (i = DIRECT_REGION_BOUND; i < INDIRECT1_REGION_BOUND && i < sectors; i++) 
+          {
+
+          }
+
+        for (i = DIRECT_REGION_BOUND; i < INDIRECT1_REGION_BOUND && i < sectors; i++) 
+          {
+
+          }
+        if (!enough_free)
+          {
+            roll_back(i);
+          }
+
+      #endif
       free (disk_inode);
     }
   return success;
