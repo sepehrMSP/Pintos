@@ -336,7 +336,12 @@ inode_open (block_sector_t sector)
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
-  cache_read (fs_device, inode->sector, &inode->data);
+  #ifndef UNIXFFS
+    cache_read (fs_device, inode->sector, &inode->data);
+  #else
+    inode->data = malloc(BLOCK_SECTOR_SIZE);
+    cache_read (fs_device, inode->sector, (void *) inode->data);
+  #endif
   return inode;
 }
 
