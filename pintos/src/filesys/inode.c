@@ -130,6 +130,7 @@ inode_init (void)
 }
 
 
+/* Reads the inode_disk located at sector SECTOR and frees all allocated blocks up until FAILED_SECTOR */
 void
 roll_back(block_sector_t sector, int failed_sector, bool indirect_alloc, bool dbl_indirect_alloc, bool layer1_alloc[])
 {
@@ -385,7 +386,10 @@ inode_close (struct inode *inode)
             free_map_release (inode->data.start,
                             bytes_to_sectors (inode->data.length));
           #else
-            free_map_release(inode->sector, 1);
+            bool layer1_alloc[BLOCK_SECTOR_SIZE_int];
+            memset (layer1_alloc, 1, (sizeof (bool)) * BLOCK_SECTOR_SIZE_int);
+            roll_back (inode->sector, bytes_to_sectors(inode->data->length), true, true, layer1_alloc);
+            free_map_release (inode->sector, 1);
           #endif
         }
 
