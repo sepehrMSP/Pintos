@@ -1,6 +1,7 @@
 #include "filesys/cache.h"
 #include <list.h>
 #include <hash.h>
+#include <string.h>
 #include "threads/synch.h"
 #include "threads/malloc.h"
 

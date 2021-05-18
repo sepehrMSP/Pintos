@@ -166,3 +166,12 @@ file_tell (struct file *file)
   ASSERT (file != NULL);
   return file->pos;
 }
+
+// Our Change
+
+/* Returns the sector the of the inode belonging to the file as the file's inumber */
+uint32_t
+file_inumber(struct file *file)
+{
+  return inode_sector(file->inode);
+}

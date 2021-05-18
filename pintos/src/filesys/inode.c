@@ -132,12 +132,12 @@ inode_init (void)
 
 /* Reads the inode_disk located at sector SECTOR and frees all allocated blocks up until FAILED_SECTOR */
 void
-roll_back(block_sector_t sector, int failed_sector, bool indirect_alloc, bool dbl_indirect_alloc, bool layer1_alloc[])
+roll_back(block_sector_t sector, int start_sector, int failed_sector, bool indirect_alloc, bool dbl_indirect_alloc, bool layer1_alloc[])
 {
   struct inode_disk disk_inode;
   cache_read(fs_device, sector, &disk_inode);
   free_map_release(sector, 1);
-  int i = 0;
+  int i = start_sector;
   for (; i < failed_sector && i < DIRECT_REGION_BOUND; i++)
     {
       free_map_release(disk_inode.direct[i], 1);
@@ -168,15 +168,112 @@ roll_back(block_sector_t sector, int failed_sector, bool indirect_alloc, bool db
             }
           cache_read(fs_device, layer1[layer_num], (void *)layer2);
           free_map_release(layer1[layer_num], 1);
-          for (int index = 0; i < failed_sector && index < BLOCK_SECTOR_SIZE_int; i++, index++)
+          for (int layer_index = 0; i < failed_sector && layer_index < BLOCK_SECTOR_SIZE_int; i++, layer_index++)
             {
-              free_map_release(layer2[index], 1);
+              free_map_release(layer2[layer_index], 1);
             }
           layer_num++;
         }
     }
 }
 
+#ifdef UNIXFFS
+bool inode_extend(struct inode *inode, off_t length)
+{
+  size_t new_sectors = bytes_to_sectors(length);
+  size_t cur_sectors = bytes_to_sectors(inode_length(inode));
+  if (new_sectors == cur_sectors)
+  {
+    inode->data->length = length;
+    return true;
+  }
+  static char zeros[BLOCK_SECTOR_SIZE];
+  struct inode_disk *disk_inode = inode->data;
+  bool rollback = false;
+  bool indirect_alloc = false;
+  bool dbl_indr_alloc = false;
+  bool layer1_alloc[BLOCK_SECTOR_SIZE_int];
+  memset(layer1_alloc, 0, BLOCK_SECTOR_SIZE_int * sizeof(bool));
+  size_t i;
+
+  for (i = cur_sectors; i < DIRECT_REGION_BOUND && i < new_sectors; i++)
+  {
+    if (!free_map_allocate(1, disk_inode->direct + i))
+    {
+      rollback = true;
+      goto fail_extend;
+    }
+    cache_write(fs_device, disk_inode->direct[i], zeros);
+  }
+
+  if (i >= DIRECT_REGION_BOUND)
+  {
+    if (!free_map_allocate(1, &disk_inode->indirect))
+    {
+      rollback = true;
+      goto fail_extend;
+    }
+    indirect_alloc = true;
+    block_sector_t buffer[BLOCK_SECTOR_SIZE_int];
+    for (; i < INDIRECT1_REGION_BOUND && i < new_sectors; i++)
+    {
+      if (!free_map_allocate(1, (void *) buffer + i))
+      {
+        rollback = true;
+        goto fail_extend;
+      }
+      cache_write(fs_device, disk_inode->direct[i], zeros);
+    }
+    cache_write(fs_device, disk_inode->indirect, (void *)buffer);
+  }
+
+  if (i >= INDIRECT1_REGION_BOUND)
+  {
+    if (!free_map_allocate(1, &disk_inode->doubly_indirect))
+    {
+      rollback = true;
+      goto fail_extend;
+    }
+    dbl_indr_alloc = true;
+
+    size_t layer_num = 0;
+    block_sector_t buffer_l1[BLOCK_SECTOR_SIZE_int];
+    block_sector_t buffer_l2[BLOCK_SECTOR_SIZE_int];
+    while (i < new_sectors)
+    {
+      if (!free_map_allocate(1, buffer_l1 + layer_num))
+      {
+        rollback = true;
+        goto fail_extend;
+      }
+      layer1_alloc[layer_num] = true;
+      for (int layer_index = 0; layer_index < BLOCK_SECTOR_SIZE_int && i < new_sectors; layer_index++, i++)
+      {
+        if (!free_map_allocate(1, buffer_l2 + layer_index))
+        {
+          rollback = true;
+          goto fail_extend;
+        }
+        cache_write(fs_device, buffer_l2[layer_index], zeros);
+      }
+      cache_write(fs_device, buffer_l1[layer_num], (void *)buffer_l2);
+      layer_num++;
+    }
+    cache_write(fs_device, disk_inode->doubly_indirect, (void *)buffer_l1);
+  }
+
+  cache_write(fs_device, inode->sector, disk_inode);
+
+fail_extend:
+  if (rollback)
+  {
+    roll_back(inode->sector, cur_sectors, i, indirect_alloc, dbl_indr_alloc, layer1_alloc);
+    return false;
+  }
+
+  return true;
+}
+#endif
 
 /* Initializes an inode with LENGTH bytes of data and
    writes the new inode to sector SECTOR on the file system
@@ -199,9 +296,9 @@ inode_create (block_sector_t sector, off_t length)
   if (disk_inode != NULL)
     {
       size_t sectors = bytes_to_sectors (length);
-      disk_inode->length = length;
       disk_inode->magic = INODE_MAGIC;
       #ifndef UNIXFFS
+      disk_inode->length = length;
         if (free_map_allocate (sectors, &disk_inode->start))
           {
             cache_write (fs_device, sector, disk_inode);
@@ -216,88 +313,16 @@ inode_create (block_sector_t sector, off_t length)
             success = true;
           }
       #else
-        int i = 0;
-        bool rollback = false, indirect_alloc = false, dbl_indr_alloc = false;
-        bool layer1_alloc[BLOCK_SECTOR_SIZE_int];
-        memset(layer1_alloc, 0, BLOCK_SECTOR_SIZE_int * sizeof(block_sector_t));
-        static char zeros[BLOCK_SECTOR_SIZE];
+        if (sectors >= INDIRECT2_REGION_BOUND)
+          return -1;
 
-        for (; i < DIRECT_REGION_BOUND && i < sectors; i++) 
-          {
-            if (!free_map_allocate(1, disk_inode->direct + i))
-              {
-                rollback = true;
-                goto fail;
-              }
-            cache_write(fs_device, disk_inode->direct[i], zeros);
-          }
+        disk_inode->length = 0;
 
-        if (i >= DIRECT_REGION_BOUND)
-          {
-            if (!free_map_allocate(1, &disk_inode->indirect))
-              {
-                rollback = true;
-                goto fail;
-              }
-            indirect_alloc = true;
-            int buffer[BLOCK_SECTOR_SIZE_int];
-            for (; i < INDIRECT1_REGION_BOUND && i < sectors; i++) 
-              {
-                if (!free_map_allocate(1, buffer + i))
-                  {
-                    rollback = true;
-                    goto fail;
-                  }
-                cache_write(fs_device, disk_inode->direct[i], zeros);
-              }
-            cache_write(fs_device, disk_inode->indirect, (void *) buffer);
-          }
+        struct inode inode;
+        inode.sector = sector;
+        inode.data = disk_inode;
 
-        // ATTENTION! MINE FIELD!
-
-        if (i >= INDIRECT1_REGION_BOUND)
-          {
-            if (!free_map_allocate(1, &disk_inode->doubly_indirect))
-              {
-                rollback = true;
-                goto fail;
-              }
-            dbl_indr_alloc = true;
-
-            int layer_num = 0;
-            int buffer_l1[BLOCK_SECTOR_SIZE_int];
-            int buffer_l2[BLOCK_SECTOR_SIZE_int];
-            int index;
-            while (i < sectors)
-              {
-                if (!free_map_allocate(1, buffer_l1 + layer_num))
-                  {
-                    rollback = true;
-                    goto fail;
-                  }
-                layer1_alloc[layer_num] = true;
-                for (; i < INDIRECT1_REGION_BOUND + (layer_num + 1) * BLOCK_SECTOR_SIZE_int && i < sectors; i++) 
-                  {
-                    index = i - INDIRECT1_REGION_BOUND - layer_num * BLOCK_SECTOR_SIZE_int;
-                    if (!free_map_allocate(1, buffer_l2 + index))
-                      {
-                       rollback = true;
-                       goto fail;
-                     }
-                    cache_write(fs_device, buffer_l2[index], zeros);
-                  }
-                cache_write(fs_device, buffer_l1[layer_num], (void *) buffer_l2);
-                layer_num++;
-              }
-            cache_write(fs_device, disk_inode->doubly_indirect, (void *) buffer_l1);
-          }
-
-          cache_write(fs_device, sector, disk_inode);
-fail:
-        if (rollback)
-          {
-            roll_back(sector, i, indirect_alloc, dbl_indr_alloc, layer1_alloc);
-          }
+        inode_extend(&inode, length);
 
       #endif
       free (disk_inode);
@@ -388,7 +413,7 @@ inode_close (struct inode *inode)
           #else
             bool layer1_alloc[BLOCK_SECTOR_SIZE_int];
             memset (layer1_alloc, 1, (sizeof (bool)) * BLOCK_SECTOR_SIZE_int);
-            roll_back (inode->sector, bytes_to_sectors(inode->data->length), true, true, layer1_alloc);
+            roll_back (inode->sector, 0, bytes_to_sectors(inode->data->length), true, true, layer1_alloc);
             free_map_release (inode->sector, 1);
           #endif
         }
@@ -477,6 +502,14 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
   if (inode->deny_write_cnt)
     return 0;
 
+  #ifdef UNIXFFS
+    off_t new_length = offset + size;
+    if (new_length > inode_length (inode) && !inode_extend (inode, new_length))
+      {
+        return 0;
+      }
+  #endif
+
   while (size > 0)
     {
       /* Sector to write, starting byte offset within sector. */
@@ -558,4 +591,12 @@ inode_length (const struct inode *inode)
   #else
     return inode->data->length;
   #endif
+}
+
+// Our Change
+/* Returns the sector of the inode */
+block_sector_t
+inode_sector (struct inode *inode)
+{
+  return inode->sector;
 }

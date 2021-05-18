@@ -299,6 +299,25 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       lock_release (&global_files_lock);
     }
+  else if (args[0] == SYS_INUMBER)
+    {
+      if (!is_valid_addr(args, 2 * sizeof(uint32_t)))
+        {
+          fault_terminate(f);
+        }
+      lock_acquire(&global_files_lock);
+
+      int fd = args[1];
+      struct thread_file *tf = get_thread_file(fd);
+      if (tf == NULL)
+        {
+          lock_release(&global_files_lock);
+          fault_terminate(f);
+        }
+      f->eax = (int) file_inumber(tf->file);
+
+      lock_release(&global_files_lock);
+    }
 }
 
 static void fault_terminate (struct intr_frame *f)

@@ -26,4 +26,8 @@ void file_seek (struct file *, off_t);
 off_t file_tell (struct file *);
 off_t file_length (struct file *);
 
+/* Inode number */
+
+uint32_t file_inumber(struct file *);
+
 #endif /* filesys/file.h */
