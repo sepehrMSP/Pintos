@@ -339,7 +339,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_READDIR)
     {
-
+ 
     }
   else if (args[0] == SYS_MKDIR)
     {
@@ -355,7 +355,21 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_CHDIR)
     {
-
+      if (!is_valid_addr (args, 2 * sizeof (uint32_t)) || !is_valid_str (args[1]))
+        {
+          fault_terminate (f);
+        }
+      lock_acquire (&global_files_lock);
+      const char *name = args[1];
+      struct dir *dir = get_path(name, true, NULL);
+      if (dir != NULL) 
+        {
+          thread_current ()->cwd = dir;
+          f->eax = true;
+        }
+      else
+        f->eax = false;
+      lock_release (&global_files_lock); 
     }
 }
 

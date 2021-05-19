@@ -70,7 +70,6 @@ get_path (const char *name, bool check_last, char* file_name)
           thread_current ()->cwd = cur_dir;
         }
     }
-
   else
     cur_dir = dir_open_root ();
 
