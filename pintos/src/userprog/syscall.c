@@ -165,7 +165,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       lock_acquire (&global_files_lock);
       const char *name = args[1];
       off_t initial_size = args[2];
-      f->eax = filesys_create (name, initial_size);
+      f->eax = filesys_create (name, initial_size, false);
       lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_OPEN)
@@ -320,7 +320,22 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_ISDIR)
     {
+      if (!is_valid_addr (args, 2 * sizeof (uint32_t)))
+        {
+          fault_terminate (f);
+        }
+      lock_acquire (&global_files_lock);
 
+      int fd = args[1];
+      struct thread_file *tf = get_thread_file (fd);
+      if (tf == NULL)
+        {
+          lock_release (&global_files_lock);
+          fault_terminate (f);
+        }
+      f->eax = file_is_dir (tf->file);
+
+      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_READDIR)
     {
@@ -328,7 +343,15 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_MKDIR)
     {
+      if (!is_valid_addr (args, 2 * sizeof (uint32_t)) || !is_valid_str (args[1]))
+        {
+          fault_terminate (f);
+        }
+      lock_acquire (&global_files_lock);
+      const char *name = args[1];
 
+      f->eax = filesys_create (name, 0, true);
+      lock_release (&global_files_lock); 
     }
   else if (args[0] == SYS_CHDIR)
     {

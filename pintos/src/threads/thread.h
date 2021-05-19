@@ -116,6 +116,7 @@ struct thread
    struct list files;
    int fd_count;
 
+   struct dir *cwd;
   };
 
 struct thread_info

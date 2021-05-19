@@ -171,7 +171,13 @@ file_tell (struct file *file)
 
 /* Returns the sector the of the inode belonging to the file as the file's inumber */
 uint32_t
-file_inumber(struct file *file)
+file_inumber (struct file *file)
 {
   return inode_sector(file->inode);
+}
+
+bool
+file_is_dir (struct file *file)
+{
+  return inode_is_dir(file->inode);
 }

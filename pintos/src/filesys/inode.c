@@ -25,15 +25,18 @@ struct inode_disk
     uint32_t unused[125];               /* Not used. */
   };
 #else
-  #define DIRECT_REGION_BOUND 124
-  #define INDIRECT1_REGION_BOUND 252
-  #define INDIRECT2_REGION_BOUND 16636
+  #define DIRECT_REGION_BOUND 122
+  #define INDIRECT1_REGION_BOUND (DIRECT_REGION_BOUND + 128)
+  #define INDIRECT2_REGION_BOUND (INDIRECT1_REGION_BOUND + 128*128)
 
   struct inode_disk
     {
       off_t length;
       unsigned magic;
-      block_sector_t direct[124];
+      bool is_dir;
+      bool unused[3];
+      block_sector_t parent_dir;
+      block_sector_t direct[DIRECT_REGION_BOUND];
       block_sector_t indirect;
       block_sector_t doubly_indirect;
     };
@@ -68,6 +71,7 @@ struct inode
     #else
       struct inode_disk *data;
     #endif
+    bool is_dir;
   };
 
 /* Returns the block device sector that contains byte offset POS
@@ -314,7 +318,7 @@ fail_extend:
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
 bool
-inode_create (block_sector_t sector, off_t length)
+inode_create (block_sector_t sector, off_t length, bool is_dir)
 {
   struct inode_disk *disk_inode = NULL;
   bool success = false;
@@ -352,6 +356,7 @@ inode_create (block_sector_t sector, off_t length)
         disk_inode->length = 0;
         disk_inode->indirect = INODE_MAGIC;
         disk_inode->doubly_indirect = INODE_MAGIC;
+        disk_inode->is_dir = is_dir;
 
         struct inode inode;
         inode.sector = sector;
@@ -451,7 +456,9 @@ inode_close (struct inode *inode)
             roll_back (inode->sector, 0, bytes_to_sectors(inode->data->length), true, true, layer1_alloc);
           #endif
         }
-
+      #ifdef UNIXFFS
+        free(inode->data);
+      #endif
       free (inode);
     }
 }
@@ -633,4 +640,16 @@ block_sector_t
 inode_sector (struct inode *inode)
 {
   return inode->sector;
+}
+
+bool
+inode_is_dir(struct inode *inode)
+{
+  return inode->data->is_dir;
+}
+
+block_sector_t
+get_inode_parent_sector(struct inode *inode)
+{
+  return inode->data->parent_dir;
 }

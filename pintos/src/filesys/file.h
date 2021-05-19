@@ -2,7 +2,7 @@
 #define FILESYS_FILE_H
 
 #include "filesys/off_t.h"
-
+#include <stdbool.h>
 struct inode;
 
 /* Opening and closing files. */
@@ -29,5 +29,6 @@ off_t file_length (struct file *);
 /* Inode number */
 
 uint32_t file_inumber(struct file *);
+bool file_is_dir (struct file *file);
 
 #endif /* filesys/file.h */

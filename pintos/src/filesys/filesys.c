@@ -6,11 +6,109 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "threads/thread.h"
+
+#define DIRS_LIMIT 1024
 
 /* Partition that contains the file system. */
 struct block *fs_device;
 
 static void do_format (void);
+
+bool
+path_is_relative (const char* name)
+{
+  if (name != NULL){
+    if (name[0] == '.')
+      {
+        return true;
+      }
+  }
+  return false;
+}
+
+int
+parse_dir (const char *dir_name, tok_t *dirs)
+{
+  size_t dir_counter = 0;
+  char *rest;
+  char *tok = strtok_r (dir_name, "/", &rest);
+
+  while (tok != NULL)
+    {
+      dirs[dir_counter] = tok;
+      dir_counter++;
+      if (dir_counter == DIRS_LIMIT)
+        {
+          ASSERT (0);
+          break;
+        }
+      tok = strtok_r (NULL, "/", &rest);
+    }
+  dirs[dir_counter] = NULL;
+  return dir_counter;
+}
+
+struct dir *
+get_path (const char *name, bool check_last, char* file_name)
+{
+  struct dir *cur_dir;
+  if (path_is_relative(name))
+    cur_dir = thread_current ()->cwd;
+  else
+    cur_dir = dir_open_root ();
+
+  // WARNING : len name may be 0 (probably has been checked in is_valid_str)
+  tok_t *dirs = malloc(sizeof(tok_t) * DIRS_LIMIT);
+  char *namecpy = malloc (strlen (name) + 1);
+  strlcpy (namecpy, name, strlen (name) + 1);
+  int dirc = parse_dir (namecpy, dirs);
+  if (dirc == 0)
+    {
+      free(dirs);
+      return NULL;
+    }
+
+  if (!check_last)
+    {
+      dirc --;
+    }
+  for (int i = 0; i < dirc; i++)
+    {
+      if (!strcmp (dirs[i], ".."))
+        {
+          block_sector_t parent_dir_sector = get_dir_parent_sector(cur_dir);
+          struct inode *parent_dir_inode = inode_open (parent_dir_sector);
+          cur_dir = dir_open (parent_dir_inode);
+        }
+      else if (strcmp (dirs[i], "."))
+        {
+          struct inode *inode = NULL;
+          if (!dir_lookup (cur_dir, dirs[i], &inode))
+            {
+              free(dirs);
+              return NULL;
+            }
+          if (!inode_is_dir (inode))  
+            {
+              free(dirs);
+              return NULL;
+            }
+          cur_dir = dir_open (inode);
+        }
+    }
+  if (!check_last && file_name != NULL)
+    {
+      if (strlen(dirs[dirc]) > NAME_MAX)
+        {
+          free(dirs);
+          return NULL;
+        }
+      strlcpy (file_name, dirs[dirc], NAME_MAX + 1);
+    }
+  free(dirs);
+  return cur_dir;
+}
 
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
@@ -43,18 +141,20 @@ filesys_done (void)
    Fails if a file named NAME already exists,
    or if internal memory allocation fails. */
 bool
-filesys_create (const char *name, off_t initial_size)
+filesys_create (const char *name, off_t initial_size, bool is_dir)
 {
   block_sector_t inode_sector = 0;
-  struct dir *dir = dir_open_root ();
+  char *file_name = malloc(NAME_MAX + 1);
+  // struct dir *dir = dir_open_root ();
+  struct dir *dir = get_path(name, false, file_name);
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
-                  && inode_create (inode_sector, initial_size)
-                  && dir_add (dir, name, inode_sector));
+                  && inode_create (inode_sector, initial_size, is_dir)
+                  && dir_add (dir, file_name, inode_sector));
   if (!success && inode_sector != 0)
     free_map_release (inode_sector, 1);
   dir_close (dir);
-
+  free(file_name);
   return success;
 }
 
