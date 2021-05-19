@@ -190,3 +190,11 @@ get_file_directory_sector (struct file *file)
   // return dir_open (inode);
   return sector;
 }
+
+struct dir *
+get_file_directory (struct file *file) {
+  block_sector_t sector = get_inode_parent_sector (file->inode);
+  struct inode *inode  = inode_open (sector);
+  return dir_open (inode);
+  return sector;
+}

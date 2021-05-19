@@ -346,7 +346,24 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_READDIR)
     {
- 
+      if (!is_valid_addr (args, 3 * sizeof (uint32_t)) || !is_valid_str (args[2]))
+        {
+          fault_terminate (f);
+        }
+      lock_acquire (&global_files_lock);
+
+      int fd = args[1];
+      struct thread_file *tf = get_thread_file (fd);
+      struct dir *dir = get_file_directory (tf->file);
+      dir_readdir (dir, (char *)args[2]);
+      if (tf == NULL)
+        {
+          lock_release (&global_files_lock);
+          fault_terminate (f);
+        }
+      f->eax = file_is_dir (tf->file);
+
+      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_MKDIR)
     {
