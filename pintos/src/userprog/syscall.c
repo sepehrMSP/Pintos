@@ -80,7 +80,14 @@ syscall_handler (struct intr_frame *f UNUSED)
               lock_release (&global_files_lock);
               fault_terminate (f);
             }
-          f->eax = file_write (tf->file, buffer, size);
+          if (file_is_dir (tf->file)) 
+            {
+              f->eax = -1;
+            }
+          else
+            {
+              f->eax = file_write (tf->file, buffer, size);
+            }
         }
       lock_release (&global_files_lock);
     }
