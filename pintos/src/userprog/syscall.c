@@ -318,6 +318,22 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       lock_release(&global_files_lock);
     }
+  else if (args[0] == SYS_ISDIR)
+    {
+
+    }
+  else if (args[0] == SYS_READDIR)
+    {
+
+    }
+  else if (args[0] == SYS_MKDIR)
+    {
+
+    }
+  else if (args[0] == SYS_CHDIR)
+    {
+
+    }
 }
 
 static void fault_terminate (struct intr_frame *f)
