@@ -30,5 +30,5 @@ bool dir_readdir (struct dir *, char name[NAME_MAX + 1]);
 // OUR CHANGES
 
 block_sector_t get_dir_parent_sector (struct dir *);
-
+block_sector_t get_dir_sector (struct dir *);
 #endif /* filesys/directory.h */

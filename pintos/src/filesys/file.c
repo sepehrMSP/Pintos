@@ -183,9 +183,10 @@ file_is_dir (struct file *file)
 }
 
 struct dir *
-get_file_directory (struct file *file)
+get_file_directory_sector (struct file *file)
 {
   block_sector_t sector = get_inode_parent_sector (file->inode);
-  struct inode *inode  = inode_open (sector);
-  return dir_open (inode);
+  // struct inode *inode  = inode_open (sector);
+  // return dir_open (inode);
+  return sector;
 }

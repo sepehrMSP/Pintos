@@ -18,7 +18,6 @@
 #include "threads/synch.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
-#include "threads/thread.h"
 
 #define ARG_LIMIT 100
 
@@ -382,7 +381,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   t->bin_file = filesys_open (argv[0]);
-  t->cwd = get_file_directory (t->bin_file);
+  t->cwd = get_file_directory_sector (t->bin_file);
   file_deny_write (t->bin_file);
 
   push_args (argc, argv, esp);

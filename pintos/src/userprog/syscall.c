@@ -371,7 +371,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       struct dir *dir = get_path(name, true, NULL);
       if (dir != NULL) 
         {
-          thread_current ()->cwd = dir;
+          thread_current ()->cwd = get_dir_sector (dir);
           f->eax = true;
         }
       else

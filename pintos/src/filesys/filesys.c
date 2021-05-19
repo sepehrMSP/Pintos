@@ -18,21 +18,21 @@ static void do_format (void);
 bool
 path_is_relative (const char* name)
 {
-  // if (name != NULL){
-  //   if (name[0] == '/')
-  //     {
-  //       return false;
-  //     }
-  // }
-  // return true;
-
   if (name != NULL){
-    if (name[0] == '.')
+    if (name[0] == '/')
       {
-        return true;
+        return false;
       }
   }
-  return false;
+  return true;
+
+  // if (name != NULL){
+  //   if (name[0] == '.')
+  //     {
+  //       return true;
+  //     }
+  // }
+  // return false;
 }
 
 int
@@ -63,12 +63,7 @@ get_path (const char *name, bool check_last, char* file_name)
   struct dir *cur_dir;
   if (path_is_relative(name))
     {
-      cur_dir = thread_current ()->cwd;
-      if (cur_dir == NULL)
-        {
-          cur_dir = dir_open_root();
-          thread_current ()->cwd = cur_dir;
-        }
+      cur_dir = dir_open (inode_open (thread_current ()->cwd));
     }
   else
     cur_dir = dir_open_root ();
@@ -76,8 +71,10 @@ get_path (const char *name, bool check_last, char* file_name)
   // WARNING : len name may be 0 (probably has been checked in is_valid_str)
   tok_t *dirs = malloc(sizeof(tok_t) * DIRS_LIMIT);
   char *namecpy = malloc (strlen (name) + 1);
+  // char *temp = namecpy;
   strlcpy (namecpy, name, strlen (name) + 1);
   int dirc = parse_dir (namecpy, dirs);
+  // free (temp);
   if (dirc == 0)
     {
       free(dirs);
@@ -181,11 +178,14 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
 struct file *
 filesys_open (const char *name)
 {
-  struct dir *dir = dir_open_root ();
+  char *file_name = malloc(NAME_MAX + 1);
+  struct dir *dir = get_path (name, false, file_name);
+  // struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
 
   if (dir != NULL)
-    dir_lookup (dir, name, &inode);
+    dir_lookup (dir, file_name, &inode);
+  free (file_name);
   dir_close (dir);
 
   return file_open (inode);

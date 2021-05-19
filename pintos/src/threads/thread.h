@@ -6,6 +6,7 @@
 #include <stdint.h>
 #include "threads/synch.h"
 #include "threads/fixed-point.h"
+#include "devices/block.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -116,7 +117,7 @@ struct thread
    struct list files;
    int fd_count;
 
-   struct dir *cwd;
+   block_sector_t cwd;
   };
 
 struct thread_info

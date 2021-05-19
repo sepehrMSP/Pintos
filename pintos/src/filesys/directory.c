@@ -245,3 +245,9 @@ get_dir_parent_sector (struct dir *dir)
 {
   return get_inode_parent_sector(dir->inode);
 }
+
+block_sector_t
+get_dir_sector (struct dir *dir)
+{
+  return get_inode_sector(dir->inode);
+}
