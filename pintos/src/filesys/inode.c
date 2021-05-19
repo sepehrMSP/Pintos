@@ -637,7 +637,7 @@ inode_length (const struct inode *inode)
 // Our Change
 /* Returns the sector of the inode */
 block_sector_t
-inode_sector (struct inode *inode)
+get_inode_sector (struct inode *inode)
 {
   return inode->sector;
 }
@@ -652,4 +652,12 @@ block_sector_t
 get_inode_parent_sector(struct inode *inode)
 {
   return inode->data->parent_dir;
+}
+
+void
+set_inode_parent (block_sector_t parent_sector, block_sector_t inode_sector)
+{
+  struct inode *inode = inode_open (inode_sector);
+  inode->data->parent_dir = parent_sector;
+  cache_write(fs_device, inode_sector, inode->data);
 }

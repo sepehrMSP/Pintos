@@ -18,6 +18,14 @@ static void do_format (void);
 bool
 path_is_relative (const char* name)
 {
+  // if (name != NULL){
+  //   if (name[0] == '/')
+  //     {
+  //       return false;
+  //     }
+  // }
+  // return true;
+
   if (name != NULL){
     if (name[0] == '.')
       {
@@ -54,7 +62,15 @@ get_path (const char *name, bool check_last, char* file_name)
 {
   struct dir *cur_dir;
   if (path_is_relative(name))
-    cur_dir = thread_current ()->cwd;
+    {
+      cur_dir = thread_current ()->cwd;
+      if (cur_dir == NULL)
+        {
+          cur_dir = dir_open_root();
+          thread_current ()->cwd = cur_dir;
+        }
+    }
+
   else
     cur_dir = dir_open_root ();
 

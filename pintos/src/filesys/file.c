@@ -173,11 +173,19 @@ file_tell (struct file *file)
 uint32_t
 file_inumber (struct file *file)
 {
-  return inode_sector(file->inode);
+  return get_inode_sector(file->inode);
 }
 
 bool
 file_is_dir (struct file *file)
 {
   return inode_is_dir(file->inode);
+}
+
+struct dir *
+get_file_directory (struct file *file)
+{
+  block_sector_t sector = get_inode_parent_sector (file->inode);
+  struct inode *inode  = inode_open (sector);
+  return dir_open (inode);
 }

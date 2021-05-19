@@ -21,7 +21,7 @@ void inode_allow_write (struct inode *);
 off_t inode_length (const struct inode *);
 
 // OUR CHANGES
-block_sector_t inode_sector (struct inode *);
+block_sector_t get_inode_sector (struct inode *);
 bool inode_is_dir (struct inode *);
 block_sector_t get_inode_parent_sector(struct inode *);
 

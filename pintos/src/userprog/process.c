@@ -382,6 +382,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
     }
 
   t->bin_file = filesys_open (argv[0]);
+  t->cwd = get_file_directory (t->bin_file);
   file_deny_write (t->bin_file);
 
   push_args (argc, argv, esp);
