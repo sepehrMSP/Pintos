@@ -25,14 +25,6 @@ path_is_relative (const char* name)
       }
   }
   return true;
-
-  // if (name != NULL){
-  //   if (name[0] == '.')
-  //     {
-  //       return true;
-  //     }
-  // }
-  // return false;
 }
 
 int
@@ -55,6 +47,25 @@ parse_dir (const char *dir_name, tok_t *dirs)
     }
   dirs[dir_counter] = NULL;
   return dir_counter;
+}
+
+bool
+is_root (const char *name)
+{
+  if (name[0] == '\0')
+    return false;
+
+  tok_t *dirs = malloc (sizeof(tok_t) * DIRS_LIMIT);
+  char *namecpy = malloc (strlen (name) + 1);
+  strlcpy (namecpy, name, strlen (name) + 1);
+  int dirc = parse_dir (namecpy, dirs);
+  free (namecpy);
+  free (dirs);
+  if (dirc == 0)
+    {
+      return true; 
+    }
+  return false;
 }
 
 struct dir *
@@ -183,9 +194,15 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
 struct file *
 filesys_open (const char *name)
 {
+  if (is_root(name))
+    {
+      struct dir *root = dir_open_root ();
+      struct inode *inode = dir_get_inode (root);
+      dir_close (root);
+      return file_open (inode);
+    }
   char *file_name = malloc(NAME_MAX + 1);
   struct dir *dir = get_path (name, false, file_name);
-  // struct dir *dir = dir_open_root ();
   struct inode *inode = NULL;
 
   if (dir != NULL)

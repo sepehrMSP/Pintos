@@ -354,14 +354,20 @@ syscall_handler (struct intr_frame *f UNUSED)
 
       int fd = args[1];
       struct thread_file *tf = get_thread_file (fd);
-      struct dir *dir = get_file_directory (tf->file);
-      dir_readdir (dir, (char *)args[2]);
       if (tf == NULL)
         {
           lock_release (&global_files_lock);
           fault_terminate (f);
         }
-      f->eax = file_is_dir (tf->file);
+      if (!file_is_dir (tf->file))
+        {
+          f->eax = false;
+        }
+      else
+        {
+          struct dir *dir = get_directory (tf->file);
+          f->eax = dir_readdir (dir, (char *)args[2]);
+        }
 
       lock_release (&global_files_lock);
     }
