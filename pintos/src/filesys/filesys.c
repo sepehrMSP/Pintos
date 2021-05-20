@@ -231,7 +231,24 @@ filesys_remove (const char *name)
 
   return success;
 }
-
+
+block_sector_t
+filesys_chdir (const char *name)
+{
+  if (is_root (name))
+    {
+      struct dir *root = dir_open_root ();
+      block_sector_t bst = get_dir_sector (root);
+      dir_close (root);
+      return bst;
+    }
+  struct dir *dir = get_path(name, true, NULL);
+  if (dir == NULL)
+    return -1;
+
+  return get_dir_sector (dir);
+}
+
 /* Formats the file system. */
 static void
 do_format (void)

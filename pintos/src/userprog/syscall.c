@@ -391,10 +391,10 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       lock_acquire (&global_files_lock);
       const char *name = args[1];
-      struct dir *dir = get_path(name, true, NULL);
-      if (dir != NULL) 
+      block_sector_t cwd = filesys_chdir (name);
+      if (cwd != -1) 
         {
-          thread_current ()->cwd = get_dir_sector (dir);
+          thread_current ()->cwd = cwd;
           f->eax = true;
         }
       else
