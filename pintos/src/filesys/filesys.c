@@ -82,10 +82,8 @@ get_path (const char *name, bool check_last, char* file_name)
   // WARNING : len name may be 0 (probably has been checked in is_valid_str)
   tok_t *dirs = malloc(sizeof(tok_t) * DIRS_LIMIT);
   char *namecpy = malloc (strlen (name) + 1);
-  // char *temp = namecpy;
   strlcpy (namecpy, name, strlen (name) + 1);
   int dirc = parse_dir (namecpy, dirs);
-  // free (temp);
   if (dirc == 0)
     {
       free(dirs);
@@ -206,7 +204,14 @@ filesys_open (const char *name)
   struct inode *inode = NULL;
 
   if (dir != NULL)
-    dir_lookup (dir, file_name, &inode);
+    {
+      if (!strcmp (name, "."))
+        {
+          inode = dir_get_inode (dir);
+        }
+      else
+        dir_lookup (dir, file_name, &inode);
+    }
   free (file_name);
   dir_close (dir);
 
