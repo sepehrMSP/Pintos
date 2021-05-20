@@ -5,7 +5,7 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
-
+#include "threads/thread.h"
 /* A directory. */
 struct dir
   {
@@ -203,7 +203,14 @@ dir_remove (struct dir *dir, const char *name)
 
   /* Open inode. */
   inode = inode_open (e.inode_sector);
+
   if (inode == NULL)
+    goto done;
+
+  if (inode_is_dir (inode) && get_inode_open_cnt (inode) > 1)
+    goto done;
+
+  if (get_inode_sector (inode) == thread_current ()->cwd)
     goto done;
 
   /* Erase directory entry. */
@@ -213,7 +220,9 @@ dir_remove (struct dir *dir, const char *name)
 
   /* Remove inode. */
   inode_remove (inode);
+  // inode_remove_hard (inode);
   success = true;
+  // return success;
 
  done:
   inode_close (inode);

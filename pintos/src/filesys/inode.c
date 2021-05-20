@@ -660,4 +660,45 @@ set_inode_parent (block_sector_t parent_sector, block_sector_t inode_sector)
   struct inode *inode = inode_open (inode_sector);
   inode->data->parent_dir = parent_sector;
   cache_write(fs_device, inode_sector, inode->data);
+  inode_close (inode);
+}
+
+int
+get_inode_open_cnt (struct inode *inode)
+{
+  return inode->open_cnt;
+}
+
+void
+decrement_inode_open_cnt (struct inode *inode)
+{
+  inode->open_cnt --;
+}
+
+/* Remove the inode from memory and disk. The usage is for directories. */
+void
+inode_remove_hard (struct inode *inode)
+{
+  /* Ignore null pointer. */
+  if (inode == NULL)
+    return;
+
+    /* Remove from inode list and release lock. */
+    list_remove (&inode->elem);
+
+    inode->removed = true;
+    #ifndef UNIXFFS
+      free_map_release (inode->sector, 1);
+      free_map_release (inode->data.start,
+                      bytes_to_sectors (inode->data.length));
+    #else
+      bool layer1_alloc[BLOCK_SECTOR_SIZE_int];
+      memset (layer1_alloc, 1, (sizeof (bool)) * BLOCK_SECTOR_SIZE_int);
+      roll_back (inode->sector, 0, bytes_to_sectors(inode->data->length), true, true, layer1_alloc);
+    #endif
+
+    #ifdef UNIXFFS
+      free(inode->data);
+    #endif
+    free (inode);
 }

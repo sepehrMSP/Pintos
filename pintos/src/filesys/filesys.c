@@ -49,6 +49,9 @@ parse_dir (const char *dir_name, tok_t *dirs)
   return dir_counter;
 }
 
+/*
+check if the name is match with this regex or not '/+'
+*/
 bool
 is_root (const char *name)
 {
@@ -101,6 +104,7 @@ get_path (const char *name, bool check_last, char* file_name)
         {
           block_sector_t parent_dir_sector = get_dir_parent_sector(cur_dir);
           struct inode *parent_dir_inode = inode_open (parent_dir_sector);
+          decrement_inode_open_cnt (parent_dir_inode);
           cur_dir = dir_open (parent_dir_inode);
         }
       else if (strcmp (dirs[i], "."))
@@ -119,6 +123,7 @@ get_path (const char *name, bool check_last, char* file_name)
               return NULL;
             }
           cur_dir = dir_open (inode);
+          decrement_inode_open_cnt (inode);
         }
     }
   if (!check_last && file_name != NULL)
@@ -172,7 +177,7 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
   block_sector_t inode_sector = 0;
   char *file_name = malloc(NAME_MAX + 1);
   // struct dir *dir = dir_open_root ();
-  struct dir *dir = get_path(name, false, file_name);
+  struct dir *dir = get_path (name, false, file_name);
   bool success = (dir != NULL
                   && free_map_allocate (1, &inode_sector)
                   && inode_create (inode_sector, initial_size, is_dir)
@@ -225,9 +230,20 @@ filesys_open (const char *name)
 bool
 filesys_remove (const char *name)
 {
-  struct dir *dir = dir_open_root ();
-  bool success = dir != NULL && dir_remove (dir, name);
+  struct dir *dir;
+  char *file_name = malloc (NAME_MAX + 1);
+
+  if (is_root (name)) 
+    {
+      return false;
+    }
+  else
+    {
+      dir = get_path (name, false, file_name);
+    }
+  bool success = dir != NULL && dir_remove (dir, file_name);
   dir_close (dir);
+  free (file_name);
 
   return success;
 }
@@ -242,7 +258,7 @@ filesys_chdir (const char *name)
       dir_close (root);
       return bst;
     }
-  struct dir *dir = get_path(name, true, NULL);
+  struct dir *dir = get_path (name, true, NULL);
   if (dir == NULL)
     return -1;
 
