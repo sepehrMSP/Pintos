@@ -78,6 +78,7 @@ get_path (const char *name, bool check_last, char* file_name)
   if (dirc == 0)
     {
       free(dirs);
+      free(namecpy);
       return NULL;
     }
 
@@ -99,11 +100,13 @@ get_path (const char *name, bool check_last, char* file_name)
           if (!dir_lookup (cur_dir, dirs[i], &inode))
             {
               free(dirs);
+              free(namecpy);
               return NULL;
             }
           if (!inode_is_dir (inode))  
             {
               free(dirs);
+              free(namecpy);
               return NULL;
             }
           cur_dir = dir_open (inode);
@@ -114,11 +117,13 @@ get_path (const char *name, bool check_last, char* file_name)
       if (strlen(dirs[dirc]) > NAME_MAX)
         {
           free(dirs);
+          free(namecpy);
           return NULL;
         }
       strlcpy (file_name, dirs[dirc], NAME_MAX + 1);
     }
   free(dirs);
+  free(namecpy);
   return cur_dir;
 }
 
