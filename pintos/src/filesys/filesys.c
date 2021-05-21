@@ -189,7 +189,8 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
                   && dir_add (dir, file_name, inode_sector));
   if (!success && inode_sector != 0)
     free_map_release (inode_sector, 1);
-  dir_close (dir);
+  // dir_close (dir);
+  free (dir);
   free(file_name);
   return success;
 }
@@ -206,7 +207,6 @@ filesys_open (const char *name)
     {
       struct dir *root = dir_open_root ();
       struct inode *inode = dir_get_inode (root);
-      // dir_close (root);
       increment_inode_open_cnt (inode);
       return file_open (inode);
     }
@@ -227,7 +227,8 @@ filesys_open (const char *name)
         dir_lookup (dir, file_name, &inode);
     }
   free (file_name);
-  dir_close (dir);
+  free (dir);
+  // dir_close (dir);
 
   return file_open (inode);
 }
@@ -251,28 +252,27 @@ filesys_remove (const char *name)
       dir = get_path (name, false, file_name);
     }
   bool success = dir != NULL && dir_remove (dir, file_name);
-  dir_close (dir);
+  // dir_close (dir);
+  free(dir);
   free (file_name);
 
   return success;
 }
 
+/* Return the sector of the corresponding directory */
 block_sector_t
 filesys_chdir (const char *name)
 {
   if (is_root (name))
     {
-      struct dir *root = dir_open_root ();
-      block_sector_t bst = get_dir_sector (root);
-      dir_close (root);
-      return bst;
+      return ROOT_DIR_SECTOR;
     }
   struct dir *dir = get_path (name, true, NULL);
   if (dir == NULL)
     return -1;
 
   block_sector_t res = get_dir_sector (dir);
-  dir_close (dir);
+  // dir_close (dir);
   return res;
 }
 
