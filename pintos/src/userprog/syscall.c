@@ -16,12 +16,10 @@ static bool is_valid_byte_addr (void *);
 static bool is_valid_addr (void *, size_t);
 static bool is_valid_str (char *);
 struct thread_file *get_thread_file (int);
-struct lock global_files_lock;
 
 void
 syscall_init (void)
 {
-  lock_init (&global_files_lock);
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -58,7 +56,6 @@ syscall_handler (struct intr_frame *f UNUSED)
           fault_terminate (f);
         }
       int fd = args[1];
-      lock_acquire (&global_files_lock);
 
       if (fd == STDOUT_FILENO)
         {
@@ -77,7 +74,6 @@ syscall_handler (struct intr_frame *f UNUSED)
           struct thread_file *tf = get_thread_file (fd);
           if (tf == NULL)
             {
-              lock_release (&global_files_lock);
               fault_terminate (f);
             }
           if (file_is_dir (tf->file)) 
@@ -89,7 +85,6 @@ syscall_handler (struct intr_frame *f UNUSED)
               f->eax = file_write (tf->file, buffer, size);
             }
         }
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_PRACTICE)
     {
@@ -114,12 +109,10 @@ syscall_handler (struct intr_frame *f UNUSED)
       char *name = malloc (name_len * sizeof (char));
       strlcpy (name, file_name, name_len);
 
-      lock_acquire (&global_files_lock);
       file = filesys_open (name);
       free (name);
       file_exists = (file != NULL);
       file_close (file);
-      lock_release (&global_files_lock);
 
       if (file_exists)
         {
@@ -169,11 +162,9 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
       const char *name = args[1];
       off_t initial_size = args[2];
       f->eax = filesys_create (name, initial_size, false);
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_OPEN)
     {
@@ -181,7 +172,6 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
       const char *name = args[1];
       struct file *opened_file = filesys_open (name);
       if (opened_file == NULL)
@@ -192,7 +182,6 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           f->eax = add_to_files (thread_current (), opened_file);
         }
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_REMOVE)
     {
@@ -200,10 +189,8 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
       const char *name = args[1];
       f->eax = filesys_remove (name);
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_FILESIZE)
     {
@@ -211,18 +198,15 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
 
       int fd = args[1];
       struct thread_file *tf = get_thread_file (fd);
       if (tf == NULL)
         {
-          lock_release (&global_files_lock);
           fault_terminate (f);
         }
       f->eax = file_length (tf->file);
 
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_READ)
     {
@@ -230,7 +214,6 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
 
       int fd = args[1];
       void *buffer = args[2];
@@ -239,12 +222,10 @@ syscall_handler (struct intr_frame *f UNUSED)
       struct thread_file *tf = get_thread_file (fd);
       if (tf == NULL)
         {
-          lock_release (&global_files_lock);
           fault_terminate (f);
         }
       f->eax = file_read (tf->file, buffer, size);
 
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_SEEK)
     {
@@ -252,19 +233,16 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
 
       int fd = args[1];
       off_t position = args[2];
       struct thread_file *tf = get_thread_file (fd);
       if (tf == NULL)
         {
-          lock_release (&global_files_lock);
           fault_terminate (f);
         }
       file_seek (tf->file, position);
 
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_TELL)
     {
@@ -272,18 +250,15 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
 
       int fd = args[1];
       struct thread_file *tf = get_thread_file (fd);
       if (tf == NULL)
         {
-          lock_release (&global_files_lock);
           fault_terminate (f);
         }
       f->eax = file_tell (tf->file);
 
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_CLOSE)
     {
@@ -291,20 +266,17 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
 
       int fd = args[1];
       struct thread_file *tf = get_thread_file (fd);
       if (tf == NULL)
         {
-          lock_release (&global_files_lock);
           fault_terminate (f);
         }
       file_close (tf->file);
       list_remove (&tf->elem);
       free (tf);
 
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_INUMBER)
     {
@@ -312,18 +284,15 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate(f);
         }
-      lock_acquire(&global_files_lock);
 
       int fd = args[1];
       struct thread_file *tf = get_thread_file(fd);
       if (tf == NULL)
         {
-          lock_release(&global_files_lock);
           fault_terminate(f);
         }
       f->eax = (int) file_inumber(tf->file);
 
-      lock_release(&global_files_lock);
     }
   else if (args[0] == SYS_ISDIR)
     {
@@ -331,18 +300,15 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
 
       int fd = args[1];
       struct thread_file *tf = get_thread_file (fd);
       if (tf == NULL)
         {
-          lock_release (&global_files_lock);
           fault_terminate (f);
         }
       f->eax = file_is_dir (tf->file);
 
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_READDIR)
     {
@@ -350,13 +316,11 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
 
       int fd = args[1];
       struct thread_file *tf = get_thread_file (fd);
       if (tf == NULL)
         {
-          lock_release (&global_files_lock);
           fault_terminate (f);
         }
       if (!file_is_dir (tf->file))
@@ -365,12 +329,9 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       else
         {
-          // struct dir *dir = get_directory (tf->file);
-          // f->eax = dir_readdir (dir, (char *)args[2]);
           f->eax = filesys_readdir (tf->file, (char *)args[2]);
         }
 
-      lock_release (&global_files_lock);
     }
   else if (args[0] == SYS_MKDIR)
     {
@@ -378,11 +339,9 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
       const char *name = args[1];
 
       f->eax = filesys_create (name, 0, true);
-      lock_release (&global_files_lock); 
     }
   else if (args[0] == SYS_CHDIR)
     {
@@ -390,7 +349,6 @@ syscall_handler (struct intr_frame *f UNUSED)
         {
           fault_terminate (f);
         }
-      lock_acquire (&global_files_lock);
       const char *name = args[1];
       block_sector_t cwd = filesys_chdir (name);
       if (cwd != -1) 
@@ -400,7 +358,6 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       else
         f->eax = false;
-      lock_release (&global_files_lock); 
     }
 }
 
@@ -423,8 +380,6 @@ static bool is_valid_byte_addr (void *addr)
         return false;
     return true;
 }
-
-// WARNING check last byte address
 
 static bool is_valid_addr (void *addr, size_t size)
 {

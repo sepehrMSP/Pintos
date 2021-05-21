@@ -366,6 +366,7 @@ inode_create (block_sector_t sector, off_t length, bool is_dir)
         struct inode inode;
         inode.sector = sector;
         inode.data = disk_inode;
+        lock_init (&inode.lock);
 
         success = inode_extend(&inode, length);
 
@@ -477,7 +478,9 @@ inode_close (struct inode *inode)
       #ifdef UNIXFFS
         free(inode->data);
       #endif
+      lock_release (&inode->lock);
       free (inode);
+      return;
     }
   lock_release (&inode->lock);
 }
@@ -659,9 +662,12 @@ inode_length (const struct inode *inode)
   #ifndef UNIXFFS
     return inode->data.length;
   #else
-    lock_acquire (&inode->lock);
+    bool has_lock = lock_held_by_current_thread (&inode->lock);
+    if (!has_lock)
+      lock_acquire (&inode->lock);
     off_t ret = inode->data->length;
-    lock_release (&inode->lock);
+    if (!has_lock)
+      lock_release (&inode->lock);
     return ret;
   #endif
 }

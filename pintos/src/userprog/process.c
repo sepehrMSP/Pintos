@@ -26,8 +26,6 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
 int parse_arg (const char *file_name, tok_t *argv);
 int push_args (int argc, tok_t *argv, void **esp);
 
-extern struct lock global_files_lock;
-
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute () returns.  Returns the new process's
@@ -266,7 +264,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
   tok_t argv[ARG_LIMIT];
   int argc = parse_arg (file_name, argv);
 
-  lock_acquire (&global_files_lock);
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL)
@@ -393,7 +390,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
-  lock_release (&global_files_lock);
   return success;
 }
 

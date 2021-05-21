@@ -18,8 +18,6 @@
 #include "userprog/process.h"
 #endif
 
-extern struct lock global_files_lock;
-
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -307,7 +305,6 @@ thread_exit (void)
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail (). */
-  lock_acquire (&global_files_lock);
   intr_disable ();
   if (thread_current ()->bin_file != NULL)
     {
@@ -315,7 +312,6 @@ thread_exit (void)
       file_close (thread_current ()->bin_file);
     }
   free_thread_files (thread_current ());
-  lock_release (&global_files_lock);
   list_remove (&thread_current ()->allelem);
   sema_up (&thread_current ()->thread_info->sema);
   thread_current ()->thread_info->exited = true;
