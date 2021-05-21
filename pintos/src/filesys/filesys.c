@@ -77,7 +77,9 @@ get_path (const char *name, bool check_last, char* file_name)
   struct dir *cur_dir;
   if (path_is_relative(name))
     {
-      cur_dir = dir_open (inode_open (thread_current ()->cwd));
+      struct inode *cwd_inode = inode_open (thread_current ()->cwd);
+      decrement_inode_open_cnt (cwd_inode);
+      cur_dir = dir_open (cwd_inode);
     }
   else
     cur_dir = dir_open_root ();
@@ -201,7 +203,8 @@ filesys_open (const char *name)
     {
       struct dir *root = dir_open_root ();
       struct inode *inode = dir_get_inode (root);
-      dir_close (root);
+      // dir_close (root);
+      decrement_inode_open_cnt (inode);
       return file_open (inode);
     }
   char *file_name = malloc(NAME_MAX + 1);
@@ -213,6 +216,9 @@ filesys_open (const char *name)
       if (!strcmp (name, "."))
         {
           inode = dir_get_inode (dir);
+          increment_inode_open_cnt (inode);
+          free (file_name);
+          return file_open (inode);
         }
       else
         dir_lookup (dir, file_name, &inode);
@@ -262,7 +268,21 @@ filesys_chdir (const char *name)
   if (dir == NULL)
     return -1;
 
-  return get_dir_sector (dir);
+  block_sector_t res = get_dir_sector (dir);
+  dir_close (dir);
+  return res;
+}
+
+/*This funciton get the file corresponding to the desire directory 
+  and update the pos after reading process
+*/
+bool
+filesys_readdir (struct file *file, char name[NAME_MAX + 1])
+{
+  struct dir *dir = get_directory (file);
+  bool res = dir_readdir (dir, name);
+  set_file_pos(file, get_directory_pos (dir), res);
+  return res;
 }
 
 /* Formats the file system. */

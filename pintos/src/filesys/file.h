@@ -33,5 +33,6 @@ bool file_is_dir (struct file *file);
 struct dir *get_file_directory_sector (struct file *file);
 struct dir *get_file_directory (struct file *file);
 struct dir *get_directory (struct file *file);
+void set_file_pos(struct file *file,off_t dir_pos,bool res);
 
 #endif /* filesys/file.h */

@@ -675,6 +675,12 @@ decrement_inode_open_cnt (struct inode *inode)
   inode->open_cnt --;
 }
 
+void
+increment_inode_open_cnt (struct inode *inode)
+{
+  inode->open_cnt ++;
+}
+
 /* Remove the inode from memory and disk. The usage is for directories. */
 void
 inode_remove_hard (struct inode *inode)

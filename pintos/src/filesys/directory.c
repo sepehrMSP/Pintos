@@ -49,6 +49,23 @@ dir_open (struct inode *inode)
     }
 }
 
+struct dir *
+dir_open_with_pos (struct inode *inode, off_t pos)
+{
+  struct dir *dir = calloc (1, sizeof *dir);
+  if (inode != NULL && dir != NULL)
+    {
+      dir->inode = inode;
+      dir->pos = pos;
+      return dir;
+    }
+  else
+    {
+      inode_close (inode);
+      free (dir);
+      return NULL;
+    }
+}
 /* Opens the root directory and returns a directory for it.
    Return true if successful, false on failure. */
 struct dir *
@@ -183,6 +200,33 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   return success;
 }
 
+bool
+cwd_is_child_of_dir (block_sector_t cwd, struct dir *parent_dir, const char *name)
+{
+  struct inode *temp_inode = NULL;
+  if (!dir_lookup (parent_dir, name, &temp_inode))
+    {
+      return false;
+    }
+  if (!inode_is_dir (temp_inode))  
+    {
+      return false;
+    }
+    
+  block_sector_t parent_sector = get_inode_sector (temp_inode);
+  inode_close (temp_inode);
+
+  // ------ //
+  struct inode *cwd_inode = inode_open (cwd);
+  decrement_inode_open_cnt (cwd_inode);
+  // todo check open cnt
+  block_sector_t cwd_parent_sector = get_inode_parent_sector (cwd_inode);
+  if (cwd_parent_sector == parent_sector)
+    return true;
+
+  return false;
+}
+
 /* Removes any entry for NAME in DIR.
    Returns true if successful, false on failure,
    which occurs only if there is no file with the given NAME. */
@@ -205,6 +249,9 @@ dir_remove (struct dir *dir, const char *name)
   inode = inode_open (e.inode_sector);
 
   if (inode == NULL)
+    goto done;
+
+  if (cwd_is_child_of_dir (thread_current ()->cwd, dir, name))
     goto done;
 
   if (inode_is_dir (inode) && get_inode_open_cnt (inode) > 1)
@@ -259,4 +306,10 @@ block_sector_t
 get_dir_sector (struct dir *dir)
 {
   return get_inode_sector(dir->inode);
+}
+
+off_t
+get_directory_pos (struct dir *dir)
+{
+  return dir->pos;
 }

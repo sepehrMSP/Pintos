@@ -196,6 +196,7 @@ get_file_directory (struct file *file)
 {
   block_sector_t sector = get_inode_parent_sector (file->inode);
   struct inode *inode  = inode_open (sector);
+  decrement_inode_open_cnt (inode);
   return dir_open (inode);
 }
 
@@ -204,5 +205,15 @@ get_directory (struct file *file)
 {
   block_sector_t sector = get_inode_sector (file->inode);
   struct inode *inode = inode_open (sector);
-  return dir_open (inode);
+  decrement_inode_open_cnt (inode);
+  return dir_open_with_pos (inode, file->pos);
+}
+
+void
+set_file_pos(struct file *file, off_t dir_pos, bool res)
+{
+  if (res)
+    {
+      file->pos = dir_pos;
+    }
 }

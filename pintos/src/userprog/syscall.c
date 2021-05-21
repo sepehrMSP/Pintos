@@ -365,8 +365,9 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       else
         {
-          struct dir *dir = get_directory (tf->file);
-          f->eax = dir_readdir (dir, (char *)args[2]);
+          // struct dir *dir = get_directory (tf->file);
+          // f->eax = dir_readdir (dir, (char *)args[2]);
+          f->eax = filesys_readdir (tf->file, (char *)args[2]);
         }
 
       lock_release (&global_files_lock);
