@@ -7,6 +7,7 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "threads/thread.h"
+#include "filesys/cache.h"
 
 #define DIRS_LIMIT 1024
 
@@ -168,6 +169,7 @@ void
 filesys_done (void)
 {
   free_map_close ();
+  cache_flush ();
 }
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
