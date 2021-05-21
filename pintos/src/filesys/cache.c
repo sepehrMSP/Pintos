@@ -142,6 +142,18 @@ cache_write (struct block *block, block_sector_t sector, const void *buffer)
   cache_block->dirty = true;
 }
 
+void
+cache_flush ()
+{
+  while (list_size (&cache_list))
+    {
+      struct list_elem *e = list_pop_front (&cache_list);
+      struct cache_block *cache_block = list_entry (e, struct cache_block, list_elem);
+      if (cache_block->dirty)
+        cache_out (cache_block);
+    }
+}
+
 #else
 
 void
@@ -160,6 +172,12 @@ void
 cache_write (struct block *block, block_sector_t sector, const void *buffer)
 {
   block_write(block, sector, buffer);
+}
+
+void
+cache_flush ()
+{
+  return;
 }
 
 #endif
