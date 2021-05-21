@@ -27,6 +27,5 @@ block_sector_t get_inode_parent_sector(struct inode *);
 int get_inode_open_cnt (struct inode *);
 void decrement_inode_open_cnt (struct inode *);
 void increment_inode_open_cnt (struct inode *);
-void inode_remove_hard (struct inode *);
 
 #endif /* filesys/inode.h */
