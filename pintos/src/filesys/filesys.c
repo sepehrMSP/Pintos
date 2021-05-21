@@ -18,12 +18,13 @@ static void do_format (void);
 bool
 path_is_relative (const char* name)
 {
-  if (name != NULL){
-    if (name[0] == '/')
-      {
-        return false;
-      }
-  }
+  if (name != NULL)
+    {
+      if (name[0] == '/')
+        {
+          return false;
+        }
+    }
   return true;
 }
 
@@ -204,7 +205,7 @@ filesys_open (const char *name)
       struct dir *root = dir_open_root ();
       struct inode *inode = dir_get_inode (root);
       // dir_close (root);
-      decrement_inode_open_cnt (inode);
+      increment_inode_open_cnt (inode);
       return file_open (inode);
     }
   char *file_name = malloc(NAME_MAX + 1);

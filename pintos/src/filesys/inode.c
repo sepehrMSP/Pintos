@@ -186,13 +186,17 @@ roll_back(block_sector_t sector, int start_sector, int failed_sector, bool indir
 bool inode_extend(struct inode *inode, off_t length)
 {
   size_t new_sectors = bytes_to_sectors(length);
+  if (new_sectors > INDIRECT2_REGION_BOUND)
+    {
+      return false;
+    }
   size_t cur_sectors = bytes_to_sectors(inode_length(inode));
   if (new_sectors == cur_sectors)
-  {
-    inode->data->length = length;
-    cache_write(fs_device, inode->sector, inode->data);
-    return true;
-  }
+    {
+      inode->data->length = length;
+      cache_write(fs_device, inode->sector, inode->data);
+      return true;
+    }
   static char zeros[BLOCK_SECTOR_SIZE];
   static block_sector_t magic[BLOCK_SECTOR_SIZE_int];
   for (int i = 0; i < BLOCK_SECTOR_SIZE_int; i++)
@@ -206,97 +210,100 @@ bool inode_extend(struct inode *inode, off_t length)
   size_t i;
 
   for (i = cur_sectors; i < DIRECT_REGION_BOUND && i < new_sectors; i++)
-  {
-    if (!free_map_allocate(1, disk_inode->direct + i))
     {
-      rollback = true;
-      cache_write(fs_device, inode->sector, disk_inode);
-      goto fail_extend;
-    }
-    cache_write(fs_device, disk_inode->direct[i], zeros);
-  }
-
-  if (i >= DIRECT_REGION_BOUND)
-  {
-    if (disk_inode->indirect == INODE_MAGIC)
-      {
-        if (!free_map_allocate(1, &disk_inode->indirect))
-          {
-            rollback = true;
-            cache_write(fs_device, inode->sector, disk_inode);
-            goto fail_extend;
-          }
-        indirect_alloc = true;
-      }
-    block_sector_t buffer[BLOCK_SECTOR_SIZE_int];
-    cache_read(fs_device, disk_inode->indirect, (void *) buffer);
-    for (; i < INDIRECT1_REGION_BOUND && i < new_sectors; i++)
-    {
-      if (!free_map_allocate(1, buffer + i - DIRECT_REGION_BOUND))
-      {
-        rollback = true;
-        cache_write(fs_device, disk_inode->indirect, (void *) buffer);
-        cache_write(fs_device, inode->sector, disk_inode);
-        goto fail_extend;
-      }
-      cache_write(fs_device, buffer[i - DIRECT_REGION_BOUND], zeros);
-    }
-    cache_write(fs_device, disk_inode->indirect, (void *) buffer);
-  }
-
-  if (i >= INDIRECT1_REGION_BOUND)
-  {
-    if (disk_inode->doubly_indirect == INODE_MAGIC)
-      {
-        if (!free_map_allocate(1, &disk_inode->doubly_indirect))
+      if (!free_map_allocate(1, disk_inode->direct + i))
         {
           rollback = true;
           cache_write(fs_device, inode->sector, disk_inode);
           goto fail_extend;
         }
-        cache_write(fs_device, disk_inode->doubly_indirect, (void *) magic);
-        dbl_indr_alloc = true;
-      }
+      cache_write(fs_device, disk_inode->direct[i], zeros);
+    }
 
-    size_t layer_num = 0;
-    block_sector_t buffer_l1[BLOCK_SECTOR_SIZE_int];
-    cache_read(fs_device, disk_inode->doubly_indirect, (void *) buffer_l1);
-    block_sector_t buffer_l2[BLOCK_SECTOR_SIZE_int];
-    while (i < new_sectors)
+  if (i >= DIRECT_REGION_BOUND && i < new_sectors)
     {
-      if (buffer_l1[layer_num] == INODE_MAGIC)
+      if (disk_inode->indirect == INODE_MAGIC)
         {
-          if (!free_map_allocate(1, buffer_l1 + layer_num))
+          if (!free_map_allocate(1, &disk_inode->indirect))
             {
               rollback = true;
-              cache_write(fs_device, disk_inode->doubly_indirect, (void *) buffer_l1);
               cache_write(fs_device, inode->sector, disk_inode);
               goto fail_extend;
             }
-          cache_write(fs_device, buffer_l1[layer_num], (void *) magic);
-          layer1_alloc[layer_num] = true;
+          indirect_alloc = true;
+          cache_write(fs_device, inode->sector, disk_inode);
         }
-      cache_read(fs_device, buffer_l1[layer_num], (void *) buffer_l2);
-      for (int layer_index = 0; layer_index < BLOCK_SECTOR_SIZE_int && i < new_sectors; layer_index++, i++)
-      {
-        if (buffer_l2[layer_index] == INODE_MAGIC)
-          {
-            if (!free_map_allocate(1, buffer_l2 + layer_index))
-              {
-                rollback = true;
-                cache_write(fs_device, buffer_l1[layer_num], (void *) buffer_l2);
-                cache_write(fs_device, disk_inode->doubly_indirect, (void *) buffer_l1);
-                cache_write(fs_device, inode->sector, disk_inode);
-                goto fail_extend;
-              }
-            cache_write(fs_device, buffer_l2[layer_index], zeros);
-          }
-      }
-      cache_write(fs_device, buffer_l1[layer_num], (void *) buffer_l2);
-      layer_num++;
+      block_sector_t buffer[BLOCK_SECTOR_SIZE_int];
+      cache_read(fs_device, disk_inode->indirect, (void *) buffer);
+      for (; i < INDIRECT1_REGION_BOUND && i < new_sectors; i++)
+        {
+          if (!free_map_allocate(1, buffer + i - DIRECT_REGION_BOUND))
+            {
+              rollback = true;
+              cache_write(fs_device, disk_inode->indirect, (void *) buffer);
+              cache_write(fs_device, inode->sector, disk_inode);
+              goto fail_extend;
+            }
+          cache_write(fs_device, buffer[i - DIRECT_REGION_BOUND], zeros);
+        }
+      cache_write(fs_device, disk_inode->indirect, (void *) buffer);
     }
-    cache_write(fs_device, disk_inode->doubly_indirect, (void *) buffer_l1);
-  }
+
+  if (i >= INDIRECT1_REGION_BOUND && i < new_sectors)
+    {
+      if (disk_inode->doubly_indirect == INODE_MAGIC)
+        {
+          if (!free_map_allocate(1, &disk_inode->doubly_indirect))
+            {
+              rollback = true;
+              cache_write(fs_device, inode->sector, disk_inode);
+              goto fail_extend;
+            }
+          cache_write(fs_device, inode->sector, disk_inode);
+          cache_write(fs_device, disk_inode->doubly_indirect, (void *) magic);
+          dbl_indr_alloc = true;
+        }
+
+      size_t layer_num = (i - INDIRECT1_REGION_BOUND) / 128;
+      block_sector_t buffer_l1[BLOCK_SECTOR_SIZE_int];
+      cache_read(fs_device, disk_inode->doubly_indirect, (void *) buffer_l1);
+      block_sector_t buffer_l2[BLOCK_SECTOR_SIZE_int];
+      while (i < new_sectors)
+        {
+          if (buffer_l1[layer_num] == INODE_MAGIC)
+            {
+              if (!free_map_allocate(1, &buffer_l1[layer_num]))
+                {
+                  rollback = true;
+                  cache_write(fs_device, disk_inode->doubly_indirect, (void *) buffer_l1);
+                  cache_write(fs_device, inode->sector, disk_inode);
+                  goto fail_extend;
+                }
+              cache_write(fs_device, buffer_l1[layer_num], (void *) magic);
+              layer1_alloc[layer_num] = true;
+            }
+
+          cache_read(fs_device, buffer_l1[layer_num], (void *) buffer_l2);
+          for (int layer_index = (i - INDIRECT1_REGION_BOUND) % 128; layer_index < BLOCK_SECTOR_SIZE_int && i < new_sectors; layer_index++, i++)
+            {
+              if (buffer_l2[layer_index] == INODE_MAGIC)
+                {
+                  if (!free_map_allocate(1, buffer_l2 + layer_index))
+                    {
+                      rollback = true;
+                      cache_write(fs_device, buffer_l1[layer_num], (void *) buffer_l2);
+                      cache_write(fs_device, disk_inode->doubly_indirect, (void *) buffer_l1);
+                      cache_write(fs_device, inode->sector, disk_inode);
+                      goto fail_extend;
+                    }
+                  cache_write(fs_device, buffer_l2[layer_index], zeros);
+                }
+            }
+          cache_write(fs_device, buffer_l1[layer_num], (void *) buffer_l2);
+          layer_num++;
+        }
+      cache_write(fs_device, disk_inode->doubly_indirect, (void *) buffer_l1);
+    }
 
   inode->data->length = length;
   cache_write(fs_device, inode->sector, disk_inode);
