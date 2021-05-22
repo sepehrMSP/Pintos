@@ -281,18 +281,18 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_INUMBER)
     {
-      if (!is_valid_addr(args, 2 * sizeof(uint32_t)))
+      if (!is_valid_addr (args, 2 * sizeof (uint32_t)))
         {
-          fault_terminate(f);
+          fault_terminate (f);
         }
 
       int fd = args[1];
-      struct thread_file *tf = get_thread_file(fd);
+      struct thread_file *tf = get_thread_file (fd);
       if (tf == NULL)
         {
-          fault_terminate(f);
+          fault_terminate (f);
         }
-      f->eax = (int) file_inumber(tf->file);
+      f->eax = (int) file_inumber (tf->file);
 
     }
   else if (args[0] == SYS_ISDIR)
@@ -362,11 +362,11 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
   else if (args[0] == SYS_BLOCK_READS)
     {
-      f->eax = get_block_reads(BLOCK_FILESYS);
+      f->eax = get_block_reads (BLOCK_FILESYS);
     }
   else if (args[0] == SYS_BLOCK_WRITES)
     {
-      f->eax = get_block_writes(BLOCK_FILESYS);
+      f->eax = get_block_writes (BLOCK_FILESYS);
     }
 }
 

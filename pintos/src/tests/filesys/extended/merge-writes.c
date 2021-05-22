@@ -37,6 +37,6 @@ test_main (void)
   
   int diff_block_writes = block_writes () - initial_block_writes;
   if (diff_block_writes > 192 || diff_block_writes < 128)
-    fail ("total writes should be in [128,192], total_block_writes=%d",diff_block_writes);
+    fail ("total writes should be in [128,192], total_block_writes=%d", diff_block_writes);
   close (fd);
 }

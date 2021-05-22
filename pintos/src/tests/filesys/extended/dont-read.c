@@ -19,7 +19,7 @@ test_main (void)
 
   seek (fd, 0);
   int initial_block_reads = block_reads ();
-  for (ofs = 0; ofs < TEST_SIZE; ofs+=BLOCK_SIZE)
+  for (ofs = 0; ofs < TEST_SIZE; ofs += BLOCK_SIZE)
     {
       int bytes_write = write (fd, &zero, BLOCK_SIZE);
       if (bytes_write != BLOCK_SIZE)
@@ -28,6 +28,6 @@ test_main (void)
   
   int diff_block_reads = block_reads () - initial_block_reads;
   if (diff_block_reads > 0)
-    fail ("kernel should not read any sectors, total_block_reads=%d",diff_block_reads);
+    fail ("kernel should not read any sectors, total_block_reads=%d", diff_block_reads);
   close (fd);
 }

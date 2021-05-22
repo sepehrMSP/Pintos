@@ -173,13 +173,13 @@ file_tell (struct file *file)
 uint32_t
 file_inumber (struct file *file)
 {
-  return get_inode_sector(file->inode);
+  return get_inode_sector (file->inode);
 }
 
 bool
 file_is_dir (struct file *file)
 {
-  return inode_is_dir(file->inode);
+  return inode_is_dir (file->inode);
 }
 
 struct dir *
@@ -210,7 +210,7 @@ get_directory (struct file *file)
 }
 
 void
-set_file_pos(struct file *file, off_t dir_pos, bool res)
+set_file_pos (struct file *file, off_t dir_pos, bool res)
 {
   if (res)
     {

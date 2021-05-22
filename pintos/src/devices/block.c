@@ -163,7 +163,7 @@ block_type (struct block *block)
 int
 get_block_reads (enum block_type block_role)
 {
-  struct block * block = block_get_role(block_role);
+  struct block * block = block_get_role (block_role);
   ASSERT (block != NULL);
   return block->read_cnt;
 }
@@ -171,7 +171,7 @@ get_block_reads (enum block_type block_role)
 int
 get_block_writes (enum block_type block_role)
 {
-  struct block * block = block_get_role(block_role);
+  struct block * block = block_get_role (block_role);
   ASSERT (block != NULL);
   return block->write_cnt;
 }

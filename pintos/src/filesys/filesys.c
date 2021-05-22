@@ -60,7 +60,7 @@ is_root (const char *name)
   if (name[0] == '\0')
     return false;
 
-  tok_t *dirs = malloc (sizeof(tok_t) * DIRS_LIMIT);
+  tok_t *dirs = malloc (sizeof (tok_t) * DIRS_LIMIT);
   char *namecpy = malloc (strlen (name) + 1);
   strlcpy (namecpy, name, strlen (name) + 1);
   int dirc = parse_dir (namecpy, dirs);
@@ -77,7 +77,7 @@ struct dir *
 get_path (const char *name, bool check_last, char* file_name)
 {
   struct dir *cur_dir;
-  if (path_is_relative(name))
+  if (path_is_relative (name))
     {
       struct inode *cwd_inode = inode_open (thread_current ()->cwd);
       decrement_inode_open_cnt (cwd_inode);
@@ -86,15 +86,14 @@ get_path (const char *name, bool check_last, char* file_name)
   else
     cur_dir = dir_open_root ();
 
-  // WARNING : len name may be 0 (probably has been checked in is_valid_str)
-  tok_t *dirs = malloc(sizeof(tok_t) * DIRS_LIMIT);
+  tok_t *dirs = malloc (sizeof (tok_t) * DIRS_LIMIT);
   char *namecpy = malloc (strlen (name) + 1);
   strlcpy (namecpy, name, strlen (name) + 1);
   int dirc = parse_dir (namecpy, dirs);
   if (dirc == 0)
     {
-      free(dirs);
-      free(namecpy);
+      free (dirs);
+      free (namecpy);
       return NULL;
     }
 
@@ -106,7 +105,7 @@ get_path (const char *name, bool check_last, char* file_name)
     {
       if (!strcmp (dirs[i], ".."))
         {
-          block_sector_t parent_dir_sector = get_dir_parent_sector(cur_dir);
+          block_sector_t parent_dir_sector = get_dir_parent_sector (cur_dir);
           struct inode *parent_dir_inode = inode_open (parent_dir_sector);
           decrement_inode_open_cnt (parent_dir_inode);
           cur_dir = dir_open (parent_dir_inode);
@@ -116,14 +115,14 @@ get_path (const char *name, bool check_last, char* file_name)
           struct inode *inode = NULL;
           if (!dir_lookup (cur_dir, dirs[i], &inode))
             {
-              free(dirs);
-              free(namecpy);
+              free (dirs);
+              free (namecpy);
               return NULL;
             }
           if (!inode_is_dir (inode))  
             {
-              free(dirs);
-              free(namecpy);
+              free (dirs);
+              free (namecpy);
               return NULL;
             }
           cur_dir = dir_open (inode);
@@ -132,16 +131,16 @@ get_path (const char *name, bool check_last, char* file_name)
     }
   if (!check_last && file_name != NULL)
     {
-      if (strlen(dirs[dirc]) > NAME_MAX)
+      if (strlen (dirs[dirc]) > NAME_MAX)
         {
-          free(dirs);
-          free(namecpy);
+          free (dirs);
+          free (namecpy);
           return NULL;
         }
       strlcpy (file_name, dirs[dirc], NAME_MAX + 1);
     }
-  free(dirs);
-  free(namecpy);
+  free (dirs);
+  free (namecpy);
   return cur_dir;
 }
 
@@ -180,7 +179,7 @@ bool
 filesys_create (const char *name, off_t initial_size, bool is_dir)
 {
   block_sector_t inode_sector = 0;
-  char *file_name = malloc(NAME_MAX + 1);
+  char *file_name = malloc (NAME_MAX + 1);
   // struct dir *dir = dir_open_root ();
   struct dir *dir = get_path (name, false, file_name);
   bool success = (dir != NULL
@@ -189,9 +188,9 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
                   && dir_add (dir, file_name, inode_sector));
   if (!success && inode_sector != 0)
     free_map_release (inode_sector, 1);
-  // dir_close (dir);
+
   free (dir);
-  free(file_name);
+  free (file_name);
   return success;
 }
 
@@ -203,14 +202,14 @@ filesys_create (const char *name, off_t initial_size, bool is_dir)
 struct file *
 filesys_open (const char *name)
 {
-  if (is_root(name))
+  if (is_root (name))
     {
       struct dir *root = dir_open_root ();
       struct inode *inode = dir_get_inode (root);
       increment_inode_open_cnt (inode);
       return file_open (inode);
     }
-  char *file_name = malloc(NAME_MAX + 1);
+  char *file_name = malloc (NAME_MAX + 1);
   struct dir *dir = get_path (name, false, file_name);
   struct inode *inode = NULL;
 
@@ -228,7 +227,6 @@ filesys_open (const char *name)
     }
   free (file_name);
   free (dir);
-  // dir_close (dir);
 
   return file_open (inode);
 }
@@ -252,8 +250,8 @@ filesys_remove (const char *name)
       dir = get_path (name, false, file_name);
     }
   bool success = dir != NULL && dir_remove (dir, file_name);
-  // dir_close (dir);
-  free(dir);
+
+  free (dir);
   free (file_name);
 
   return success;
@@ -272,7 +270,7 @@ filesys_chdir (const char *name)
     return -1;
 
   block_sector_t res = get_dir_sector (dir);
-  // dir_close (dir);
+
   return res;
 }
 
@@ -284,7 +282,7 @@ filesys_readdir (struct file *file, char name[NAME_MAX + 1])
 {
   struct dir *dir = get_directory (file);
   bool res = dir_readdir (dir, name);
-  set_file_pos(file, get_directory_pos (dir), res);
+  set_file_pos (file, get_directory_pos (dir), res);
   return res;
 }
 
