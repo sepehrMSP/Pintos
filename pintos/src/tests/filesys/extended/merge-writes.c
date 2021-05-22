@@ -13,7 +13,7 @@ test_main (void)
   size_t ofs;
   char zero = 0;
 
-  CHECK (create (file_name, TEST_SIZE + 1), "create \"%s\"", file_name);
+  CHECK (create (file_name, TEST_SIZE), "create \"%s\"", file_name);
   CHECK ((fd = open (file_name)) > 1, "open \"%s\"", file_name);
 
   seek (fd, 0);
@@ -37,6 +37,6 @@ test_main (void)
   
   int diff_block_writes = block_writes () - initial_block_writes;
   if (diff_block_writes > 192 || diff_block_writes < 128)
-    fail ("total writes whould be in [128,192], total_block_writes=%d",diff_block_writes);
+    fail ("total writes should be in [128,192], total_block_writes=%d",diff_block_writes);
   close (fd);
 }

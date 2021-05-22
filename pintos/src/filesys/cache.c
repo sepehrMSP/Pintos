@@ -17,8 +17,6 @@ struct hash cache_hash;
 
 struct cache_block
   {
-    struct lock lock; // not used yet
-
     struct list_elem list_elem;
     struct hash_elem hash_elem;
 
@@ -26,7 +24,6 @@ struct cache_block
     uint8_t data[BLOCK_SECTOR_SIZE];
 
     bool dirty;
-    int access_count; // not used yet
   };
 
 unsigned
@@ -52,9 +49,7 @@ cache_init (void)
   for (int i = 0; i < CACHE_SIZE; i++)
     {
       struct cache_block *block = malloc(sizeof(struct cache_block));
-      lock_init(&block->lock);
       block->dirty = false;
-      block->access_count = 0;
       block->sector = -1; // TODO: remove me
       list_push_front(&cache_list, &block->list_elem);
     }
@@ -100,7 +95,6 @@ cache_read (struct block *block, block_sector_t sector, void *buffer)
       cache_block->sector = sector;
       cache_block->dirty = false;
       hash_insert(&cache_hash, &cache_block->hash_elem);
-      // TODO: check access count somewhere  
     }
 
   list_remove(&cache_block->list_elem);
@@ -134,7 +128,6 @@ cache_write (struct block *block, block_sector_t sector, const void *buffer)
       cache_out(cache_block);
       cache_block->sector = sector;
       hash_insert(&cache_hash, &cache_block->hash_elem);
-      // TODO: check access count somewhere  
     }
 
   list_remove(&cache_block->list_elem);
