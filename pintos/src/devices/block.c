@@ -160,6 +160,22 @@ block_type (struct block *block)
   return block->type;
 }
 
+int
+get_block_reads (enum block_type block_role)
+{
+  struct block * block = block_get_role(block_role);
+  ASSERT (block != NULL);
+  return block->read_cnt;
+}
+
+int
+get_block_writes (enum block_type block_role)
+{
+  struct block * block = block_get_role(block_role);
+  ASSERT (block != NULL);
+  return block->write_cnt;
+}
+
 /* Prints statistics for each block device used for a Pintos role. */
 void
 block_print_stats (void)

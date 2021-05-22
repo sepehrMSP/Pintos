@@ -57,6 +57,9 @@ void block_write (struct block *, block_sector_t, const void *);
 const char *block_name (struct block *);
 enum block_type block_type (struct block *);
 
+int get_block_reads (enum block_type);
+int get_block_writes (enum block_type);
+
 /* Statistics. */
 void block_print_stats (void);
 

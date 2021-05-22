@@ -191,6 +191,18 @@ inumber (int fd)
   return syscall1 (SYS_INUMBER, fd);
 }
 
+int
+block_reads ()
+{
+  return syscall0 (SYS_BLOCK_READS);
+}
+
+int
+block_writes ()
+{
+  return syscall0 (SYS_BLOCK_WRITES);
+}
+
 void*
 sbrk (intptr_t increment)
 {

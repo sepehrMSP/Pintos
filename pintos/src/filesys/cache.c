@@ -98,6 +98,7 @@ cache_read (struct block *block, block_sector_t sector, void *buffer)
       cache_out(cache_block);
       block_read(block, sector, cache_block->data);
       cache_block->sector = sector;
+      cache_block->dirty = false;
       hash_insert(&cache_hash, &cache_block->hash_elem);
       // TODO: check access count somewhere  
     }
@@ -149,8 +150,7 @@ cache_flush ()
     {
       struct list_elem *e = list_pop_front (&cache_list);
       struct cache_block *cache_block = list_entry (e, struct cache_block, list_elem);
-      if (cache_block->dirty)
-        cache_out (cache_block);
+      cache_out (cache_block);
     }
 }
 

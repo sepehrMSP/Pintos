@@ -4,6 +4,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "devices/shutdown.h"
+#include "devices/block.h"
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 #include "lib/string.h"
@@ -358,6 +359,14 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       else
         f->eax = false;
+    }
+  else if (args[0] == SYS_BLOCK_READS)
+    {
+      f->eax = get_block_reads(BLOCK_FILESYS);
+    }
+  else if (args[0] == SYS_BLOCK_WRITES)
+    {
+      f->eax = get_block_writes(BLOCK_FILESYS);
     }
 }
 
