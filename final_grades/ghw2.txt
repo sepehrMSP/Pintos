@@ -16,11 +16,11 @@ Delay(design)(h): 0
 Design (100): 95
 Delay (code&report) (h): 0.5
 Code (100): 100
-Lab1 (1): 0
+Lab1 (1): 1
 Lab2 (1): 0
-Lab3 (1): 0
-Lab (100): 0
+Lab3 (1): 1
+Lab (100): 66.67
 Report (100): 86.66
 Total (100): 82.92
 
-12-06-2021 00:48:32
+12-06-2021 01:10:08
